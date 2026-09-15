@@ -1,0 +1,36 @@
+[   31953ms] [WARNING] document.domain mutation is ignored because the surrounding agent cluster is origin-keyed. @ https://g.alicdn.com/bailian-fe/bailian-site-fe/0.0.20/assets/index.js:1
+[   42715ms] [LOG] %c [APLUS] -- APLUS INIT SUCCESS background:#3B82FE; padding: 4px; padding-right: 8px; border-radius: 4px; color: #fff; @ :1
+[   44524ms] [LOG] [AES] log perf {navigationStart: 0, fetchStart: 1015, domainLookupStart: 1015, domainLookupEnd: 1015, connectStart: 1330} @ https://g.alicdn.com/bailian-fe/bailian-site-fe/0.0.20/assets/main.js:1
+[   45035ms] [LOG] [AES] send [/aes.1.1, EXP, sdk_version=3.3.18&pv_id=v0EovEVKCTKklJOoChnJ&time…entEnd%3D34204%26ts%3D1789379327003%26type%3Dperf, POST] @ https://g.alicdn.com/bailian-fe/bailian-site-fe/0.0.20/assets/main.js:1
+[   45698ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_CLOSED @ https://log.mmstat.com/eg.js:0
+[   45823ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_CLOSED @ https://gm.mmstat.com/aes.1.1:0
+[   52027ms] [LOG] Mon Sep 14 2026 17:48:52 GMT+0800 (中国标准时间) @ https://g.alicdn.com/AWSC/et/1.83.41/et_f.js:1
+[   52068ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_CLOSED @ https://fourier.taobao.com/ts?url=&token=BNjYdhjrBhyNFiqYAbpFqJoOqQ9qwTxLm2GMWhLJJJPGrXiXutEM2-6b4-WdpvQj&cna=&ext=1:0
+[   53832ms] [INFO] [bfal-tracking] event sent: eventId=exp_back_to_legacy_entry type=EXP params= {console_version: new, stage: online, site: domestic, region: cn-beijing, page_path: /cn-beijing/pricing} @ https://g.alicdn.com/bailian-fe/bailian-site-fe/0.0.20/assets/fetcher.js:0
+[   53835ms] [LOG] ██╗  ██╗██╗
+██║  ██║██║
+███████║██║
+██╔══██║██║
+██║  ██║██║▄█╗
+╚═╝  ╚═╝╚═╝╚═╝
+
+██████╗  █████╗ ██╗██╗     ██╗ █████╗ ███╗   ██╗
+██╔══██╗██╔══██╗██║██║     ██║██╔══██╗████╗  ██║
+██████╔╝███████║██║██║     ██║███████║██╔██╗ ██║
+██╔══██╗██╔══██║██║██║     ██║██╔══██║██║╚██╗██║
+██████╔╝██║  ██║██║███████╗██║██║  ██║██║ ╚████║
+╚═════╝ ╚═╝  ╚═╝╚═╝╚══════╝╚═╝╚═╝  ╚═╝╚═╝  ╚═══╝ @ https://g.alicdn.com/bailian-fe/bailian-site-fe/0.0.20/assets/src2.js:3149
+[   55129ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_CLOSED @ https://d-gm.mmstat.com/tongyi-cn.bailian.exp_back_to_legacy_entry?gmkey=EXP&gokey=spm-url%3D%26spm-pre%3D%26spm-cnt%3D5176.28197581.0.0.3c2774a1Xkiwn7%26_f_t%3Dfalse%26pid%3Dcloud_console_sfm%26eventId%3Dexp_back_to_legacy_entry%26et%3DEXP%26site%3Ddomestic%26console_version%3Dnew%26region%3Dcn-beijing%26market%3Ddomestic%26env%3Dprod%26uid%3D%26terminal%3Dpc%26device%3DPC%26stage%3Donline%26page_path%3D%2Fcn-beijing%2Fpricing%26cache%3D1d8cceb%26jsver%3Daplus.js%26lver%3D1.13.29%26customSdkId%3D%26platformType%3Dpc%26device_model%3DLinux%26os%3DLinux%26os_version%3Dlinux%26language%3Dzh-CN%26o%3Dlinux%26w%3Dwebkit%26s%3D1280x720%26scr%3D1280x720%26m%3D%26ism%3Dother%26p%3D1%26b%3Dchrome153%26tag%3D0%26stag%3D-2%26lstag%3D-1%26_g_encode%3Dutf-8&cna=&spm-cnt=5176.28197581.0.0.3c2774a1Xkiwn7&logtype=2&scr=1280x720&_p_url=https%3A%2F%2Fbailian.console.aliyun.com%2Fcn-beijing%2Fpricing:0
+[   55129ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_CLOSED @ https://fourier.alibaba.com/ts?url=&token=gyGEUCGsCtC1gLtmuqVy0hyKBzVLN7-fKbZ7r40uRkqHepdyzDizF8xLOYrojcDQEpnWaQ0jf8cQO2ia4crwyvMIFQkrmlE7PvtpaYo0t8HQVkZza4n25nOXG23Lw7tXcIMHMf1uwuA7ZdNMlWNSknOXG20Lw7xXcYGgD6Ebl_VuK8bgIlU8ZM4oql2gors3Z7mk7Fz8juVuZ00M7zEgq7VoqYauE-5ayJAcDVVE7szgLo03b_7K_y2Fp2qNZ_cNGJrqGl5lZfzULo03b1AumxniIvDV-1w76llz80dA9W2rCXexOhfE4cnit8hMfdn8OremEVTACkhZOf2ETnWYTAmt_JhhxeUnp0hzObsFaVlzY-c3QQL8TV4u_x06kOZK_XGgLX-VHklKrYwZBM-_VxgstRoDf1o8UAGLHXtGTmjr_gUimcl-LgXzKPUacF8NhKdDAPrX7FWReJsT7oTH-TB8KrzacF8AeTeCXPrX-ef..&cna=undefined&ext=1:0
+[   55620ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_CLOSED @ https://log.mmstat.com/eg.js:0
+[   57548ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_CLOSED @ https://fourier.alibaba.com/ts?url=https%3A%2F%2Fcws.alyasset.com%2FRelease%2Falfa%2F%40ali%2Falfa-cloud-intersop-widget-sale-chat%2Frelease.json&token=gdtjmPbmS9fP8vHx6SkrA0srxpjsLYoFHR69KdE4BiIA5GO2wKkDQdC61Q9GgGkDBGM6gKaV7dhD1h1JsN7xSxms5IRygsIN7c16gQR21dDcB1d9118qzDJDnGjtTvoEYKm70UtkcGFweiXayKMe-DJDn8eb6v8-YVNQXi5TW1dO2aBcKGBOMCe82_XGBSBTDY9RZ_EYMNCx2zBFCSIOXCp-FOfR6GQv6LH5C_CtFI05eq1yh0Tl4DK71gvANlE92cbfOKUaXlK5hZt9H_9yU36fl6QZ0GjBfp990gTQ6qpCqH7w2nn_qiJBygBkbbqA1UBBQgtsio5GD9bH8aNxnt89EFCDAfZCMnYWfg-KskRBgQKFbnHaPBQ1GUKAPREO4iTW1FsLwYX2WLYOiHG_AsKDFe76oXaH9LJemaxsO7CMu9jREhluD1TRBg70Y6NKZPw5-l65TYM7SPbWnfMgMuWnpZBlEJkSFyzGkTX5wYM7S7_AET2EFYaUS&cna=undefined&ext=61:0
+[   57548ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_CLOSED @ https://fourier.taobao.com/ts?url=https%3A%2F%2Fcws.alyasset.com%2FRelease%2Falfa%2F%40ali%2Falfa-cloud-intersop-widget-sale-chat%2Frelease.json&token=BMXFMm1oA-Pw7Cc_9Nlgh5ed1Aj_gnkUxnLB_ccqgfwLXuXQj9KJ5FMoboKoHpHM&cna=&ext=0:0
+[   57582ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_CLOSED @ https://log.mmstat.com/eg.js:0
+[   57583ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_CLOSED @ https://d-gm.mmstat.com/aes.1.1:0
+[   64172ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_CLOSED @ https://log.mmstat.com/eg.js:0
+[   64172ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_CLOSED @ https://log.mmstat.com/v.gif:0
+[   64174ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_CLOSED @ https://d-gm.mmstat.com/aes.1.1:0
+[  120418ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_CLOSED @ https://log.mmstat.com/eg.js:0
+[  122479ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_CLOSED @ https://d-gm.mmstat.com/aes.1.1:0
+[  598131ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_CLOSED @ https://log.mmstat.com/eg.js:0
+[  604411ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_CLOSED @ https://d-gm.mmstat.com/aes.1.1:0

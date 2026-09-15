@@ -1,0 +1,4 @@
+# 运行依赖（Python >= 3.10，实测 3.14.4）
+requests>=2.31
+PyYAML>=6.0
+textual>=8.2

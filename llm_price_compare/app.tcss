@@ -1,0 +1,84 @@
+/* app.tcss — LLM Price Compare TUI 样式 */
+
+Screen {
+    background: $surface;
+}
+
+TabbedContent {
+    height: 1fr;
+    background: $surface;
+}
+
+TabPane {
+    padding: 0 1;
+}
+
+/* 每个页面本身是可滚动容器，保证表格超屏时可以滚动 */
+.pane {
+    height: 1fr;
+    padding-bottom: 1;
+}
+
+#loading {
+    height: 1fr;
+    align-horizontal: center;
+    padding-top: 3;
+}
+
+/* 区块标题 */
+Section {
+    height: auto;
+    padding: 0 1;
+    margin-top: 1;
+    background: $panel;
+    color: $text;
+    text-style: bold;
+    border: round $primary;
+}
+
+/* 说明文字 */
+Hint {
+    height: auto;
+    padding: 0 1;
+    color: $text;
+    text-style: dim;
+}
+
+/* 数据表：高度随内容自适应，交给 .pane 负责滚动 */
+.tbl {
+    height: auto;
+    margin-top: 1;
+    border: round $secondary;
+}
+
+/* 聚焦的表格用醒目边框标出，解决「多张纵向堆叠表时看不出光标作用在哪张」 */
+.tbl:focus {
+    border: tall $primary;
+}
+
+.select-row {
+    height: auto;
+    padding: 0 1;
+}
+
+Select.version-select {
+    width: 34;
+}
+
+/* 底部状态栏 */
+#status {
+    height: 1;
+    dock: bottom;
+    padding: 0 1;
+    background: $panel;
+    color: $text;
+}
+
+/* 状态栏文字色为「UI 状态色」，随主题语义变量变化（区别于表格里的涨跌数据编码色） */
+#status.ok { color: $success; }
+#status.warn { color: $warning; }
+#status.err { color: $error; }
+
+Footer {
+    background: $panel;
+}

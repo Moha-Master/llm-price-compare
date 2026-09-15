@@ -1,0 +1,424 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e4]:
+    - banner [ref=e5]:
+      - generic [ref=e7]:
+        - img "百炼" [ref=e9] [cursor=pointer]
+        - generic [ref=e10]:
+          - generic [ref=e11] [cursor=pointer]: 模型
+          - generic [ref=e13] [cursor=pointer]: Agent
+          - generic [ref=e18] [cursor=pointer]: TokenPlan
+          - generic [ref=e20] [cursor=pointer]: 价格
+        - generic [ref=e25]:
+          - button "前往阿里云" [ref=e26] [cursor=pointer]:
+            - img "阿里云" [ref=e27]
+          - generic [ref=e28] [cursor=pointer]: 华北2（北京）
+          - button "客服" [ref=e37] [cursor=pointer]
+          - button "返回旧版" [ref=e42] [cursor=pointer]
+        - button "登录" [ref=e47] [cursor=pointer]
+    - main [ref=e50]:
+      - generic [ref=e54]:
+        - generic [ref=e56]:
+          - generic [ref=e57]:
+            - generic [ref=e59]:
+              - tablist [ref=e60]:
+                - generic [ref=e62]:
+                  - tab "全球" [ref=e64] [cursor=pointer]
+                  - tab "国际" [selected] [ref=e66] [cursor=pointer]
+                  - tab "中国内地" [ref=e68] [cursor=pointer]
+                  - tab "美国" [ref=e70] [cursor=pointer]
+                  - tab "欧盟" [ref=e72] [cursor=pointer]
+                  - tab "日本" [ref=e74] [cursor=pointer]
+                  - tab "中国香港" [ref=e76] [cursor=pointer]
+              - generic:
+                - generic:
+                  - tabpanel "国际"
+            - generic [ref=e78] [cursor=pointer]
+          - textbox "模型搜索" [ref=e88]
+        - generic [ref=e90]:
+          - complementary [ref=e91]:
+            - generic [ref=e92]:
+              - button "文本生成 244" [ref=e94] [cursor=pointer]:
+                - generic [ref=e95]: 文本生成
+                - generic [ref=e96]: "244"
+              - button "通义千问 230" [ref=e98] [cursor=pointer]:
+                - generic [ref=e99]: 通义千问
+                - generic [ref=e102]: "230"
+              - button "三方模型 14" [ref=e104] [cursor=pointer]:
+                - generic [ref=e105]: 三方模型
+                - generic [ref=e108]: "14"
+              - button "图像生成 37" [ref=e110] [cursor=pointer]:
+                - generic [ref=e111]: 图像生成
+                - generic [ref=e112]: "37"
+              - button "视频生成 75" [ref=e114] [cursor=pointer]:
+                - generic [ref=e115]: 视频生成
+                - generic [ref=e116]: "75"
+              - button "语音合成 14" [ref=e118] [cursor=pointer]:
+                - generic [ref=e119]: 语音合成
+                - generic [ref=e120]: "14"
+              - button "语音识别 15" [ref=e122] [cursor=pointer]:
+                - generic [ref=e123]: 语音识别
+                - generic [ref=e124]: "15"
+              - button "多模态 13" [ref=e126] [cursor=pointer]:
+                - generic [ref=e127]: 多模态
+                - generic [ref=e128]: "13"
+              - button "Omni模型 13" [ref=e130] [cursor=pointer]:
+                - generic [ref=e131]: Omni模型
+                - generic [ref=e134]: "13"
+              - button "向量 6" [ref=e136] [cursor=pointer]:
+                - generic [ref=e137]: 向量
+                - generic [ref=e138]: "6"
+              - button "文本向量 4" [ref=e140] [cursor=pointer]:
+                - generic [ref=e141]: 文本向量
+                - generic [ref=e144]: "4"
+              - button "多模态向量 2" [ref=e146] [cursor=pointer]:
+                - generic [ref=e147]: 多模态向量
+                - generic [ref=e150]: "2"
+              - button "工具调用 1" [ref=e152] [cursor=pointer]:
+                - generic [ref=e153]: 工具调用
+                - generic [ref=e154]: "1"
+              - button "预付费订阅 2" [ref=e156] [cursor=pointer]:
+                - generic [ref=e157]: 预付费订阅
+                - generic [ref=e158]: "2"
+              - button "大语言模型节省计划 1" [ref=e160] [cursor=pointer]:
+                - generic [ref=e161]: 大语言模型节省计划
+                - generic [ref=e164]: "1"
+              - button "万相模型节省计划 1" [ref=e166] [cursor=pointer]:
+                - generic [ref=e167]: 万相模型节省计划
+                - generic [ref=e170]: "1"
+            - generic: API key
+          - generic [ref=e171]:
+            - generic [ref=e172]:
+              - heading "文本生成" [level=2] [ref=e173]
+              - generic [ref=e174]:
+                - button "实时" [ref=e175] [cursor=pointer]
+                - button "批量" [ref=e176] [cursor=pointer]
+            - generic [ref=e177]:
+              - generic [ref=e178]:
+                - generic [ref=e180]:
+                  - heading "通义千问" [level=3] [ref=e181]
+                  - generic [ref=e182]: （每百万tokens）
+                - generic [ref=e183]:
+                  - table [ref=e191]:
+                    - rowgroup [ref=e201]:
+                      - row [ref=e202]:
+                        - columnheader "模型名称" [ref=e203]:
+                          - generic [ref=e204]:
+                            - generic [ref=e205]: 模型名称
+                            - button [ref=e206] [cursor=pointer]
+                        - columnheader "输入Token范围" [ref=e210]:
+                          - generic [ref=e211]:
+                            - generic [ref=e212]: 输入Token范围
+                            - button [ref=e213] [cursor=pointer]
+                        - columnheader "思考模式" [ref=e217]:
+                          - generic [ref=e218]:
+                            - generic [ref=e219]: 思考模式
+                            - button [ref=e220] [cursor=pointer]
+                        - columnheader "输入价格" [ref=e224] [cursor=pointer]
+                        - columnheader "输出价格" [ref=e230] [cursor=pointer]
+                        - columnheader "输入价格（隐式命中缓存）" [ref=e236] [cursor=pointer]
+                        - columnheader "输入价格（显式创建缓存）" [ref=e242] [cursor=pointer]
+                        - columnheader "输入价格（显式命中缓存）" [ref=e248] [cursor=pointer]
+                    - rowgroup [ref=e254]:
+                      - generic [ref=e255]:
+                        - generic [ref=e256]: 模型名称
+                        - button [ref=e257] [cursor=pointer]
+                      - generic [ref=e261]:
+                        - generic [ref=e262]: 输入Token范围
+                        - button [ref=e263] [cursor=pointer]
+                      - generic [ref=e267]:
+                        - generic [ref=e268]: 思考模式
+                        - button [ref=e269] [cursor=pointer]
+                      - generic [ref=e273]: 输入价格
+                      - generic [ref=e278]: 输出价格
+                      - generic [ref=e283]: 输入价格（隐式命中缓存）
+                      - generic [ref=e288]: 输入价格（显式创建缓存）
+                      - generic [ref=e293]: 输入价格（显式命中缓存）
+                      - row [ref=e298]:
+                        - cell "qwen3.8-max" [ref=e299]
+                        - cell "-" [ref=e302]
+                        - cell "-" [ref=e303]
+                        - cell "¥14.988" [ref=e304]
+                        - cell "¥44.965" [ref=e307]
+                        - cell "¥1.874" [ref=e310]
+                        - cell "¥18.736" [ref=e313]
+                        - cell "¥1.274" [ref=e316]
+                      - row [ref=e319]:
+                        - cell "qwen3.8-max-0902" [ref=e320]
+                        - cell "-" [ref=e323]
+                        - cell "-" [ref=e324]
+                        - cell "¥14.988" [ref=e325]
+                        - cell "¥44.965" [ref=e328]
+                        - cell "¥1.874" [ref=e331]
+                        - cell "¥18.736" [ref=e334]
+                        - cell "¥1.274" [ref=e337]
+                      - row [ref=e340]:
+                        - cell "qwen3.8-flash" [ref=e341]
+                        - cell "-" [ref=e344]
+                        - cell "-" [ref=e345]
+                        - cell "¥1.094" [ref=e346]
+                        - cell "¥3.427" [ref=e349]
+                        - cell "¥0.117" [ref=e352]
+                        - cell "¥1.458" [ref=e355]
+                        - cell "¥0.117" [ref=e358]
+                      - row [ref=e361]:
+                        - cell "qwen3.8-2.4t-a95b" [ref=e362]
+                        - cell "-" [ref=e365]
+                        - cell "-" [ref=e366]
+                        - cell "¥14.988" [ref=e367]
+                        - cell "¥44.965" [ref=e370]
+                        - cell "¥1.874" [ref=e373]
+                        - cell "¥18.736" [ref=e376]
+                        - cell "¥1.274" [ref=e379]
+                      - row [ref=e382]:
+                        - cell "qwen3.8-27b" [ref=e383]
+                        - cell "-" [ref=e386]
+                        - cell "-" [ref=e387]
+                        - cell "¥3.646" [ref=e388]
+                        - cell "¥21.875" [ref=e391]
+                        - cell "¥0.729" [ref=e394]
+                        - cell "¥4.557" [ref=e397]
+                        - cell "¥0.365" [ref=e400]
+                      - row [ref=e403]:
+                        - cell "qwen3.7-plus" [ref=e404]
+                        - cell "输入<=256k" [ref=e407]
+                        - cell "-" [ref=e408]
+                        - cell "¥2.998" [ref=e409]
+                        - cell "¥11.991" [ref=e412]
+                        - cell "¥0.6" [ref=e415]
+                        - cell "¥3.747" [ref=e418]
+                        - cell "¥0.3" [ref=e421]
+                      - row [ref=e424]:
+                        - cell "qwen3.7-plus" [ref=e425]
+                        - cell "256k<输入<=1m" [ref=e428]
+                        - cell "-" [ref=e429]
+                        - cell "¥8.993" [ref=e430]
+                        - cell "¥35.972" [ref=e433]
+                        - cell "¥1.799" [ref=e436]
+                        - cell "¥11.241" [ref=e439]
+                        - cell "¥0.899" [ref=e442]
+                      - row [ref=e445]:
+                        - cell "qwen3.7-plus-2026-05-26" [ref=e446]
+                        - cell "输入<=256k" [ref=e449]
+                        - cell "-" [ref=e450]
+                        - cell "¥2.998" [ref=e451]
+                        - cell "¥11.991" [ref=e454]
+                        - cell "¥0.6" [ref=e457]
+                        - cell "¥3.747" [ref=e460]
+                        - cell "¥0.3" [ref=e463]
+                      - row [ref=e466]:
+                        - cell "qwen3.7-plus-2026-05-26" [ref=e467]
+                        - cell "256k<输入<=1m" [ref=e470]
+                        - cell "-" [ref=e471]
+                        - cell "¥8.993" [ref=e472]
+                        - cell "¥35.972" [ref=e475]
+                        - cell "¥1.799" [ref=e478]
+                        - cell "¥11.241" [ref=e481]
+                        - cell "¥0.899" [ref=e484]
+                      - row [ref=e487]:
+                        - cell "qwen3.7-max" [ref=e488]
+                        - cell "-" [ref=e491]
+                        - cell "-" [ref=e492]
+                        - cell "¥18.736" [ref=e493]
+                        - cell "¥56.207" [ref=e496]
+                        - cell "¥3.747" [ref=e499]
+                        - cell "¥23.419" [ref=e502]
+                        - cell "¥1.874" [ref=e505]
+                  - list [ref=e509]:
+                    - listitem [ref=e510]: 共205条
+                    - listitem "上一页" [ref=e511]:
+                      - button [disabled] [ref=e512]:
+                        - img "left" [ref=e513]
+                    - listitem "1" [ref=e516] [cursor=pointer]
+                    - listitem "2" [ref=e518] [cursor=pointer]
+                    - listitem "3" [ref=e520] [cursor=pointer]
+                    - listitem "4" [ref=e522] [cursor=pointer]
+                    - listitem "5" [ref=e524] [cursor=pointer]
+                    - listitem "向后 5 页" [ref=e526] [cursor=pointer]:
+                      - generic [ref=e528]:
+                        - img "double-right" [ref=e529]
+                        - img "ellipsis" [ref=e533]
+                    - listitem "21" [ref=e536] [cursor=pointer]
+                    - listitem "下一页" [ref=e538] [cursor=pointer]:
+                      - button [ref=e539]:
+                        - img "right" [ref=e540]
+                    - listitem [ref=e543]:
+                      - generic [ref=e544]:
+                        - generic "10 条/页" [ref=e545]:
+                          - text: 10 条/页
+                          - combobox "页码" [ref=e546]
+                        - img "down" [ref=e548]
+              - generic [ref=e551]:
+                - generic [ref=e553]:
+                  - heading "三方模型" [level=3] [ref=e554]
+                  - generic [ref=e555]: （每百万tokens）
+                - generic [ref=e556]:
+                  - table [ref=e564]:
+                    - rowgroup [ref=e575]:
+                      - row [ref=e576]:
+                        - columnheader "模型名称" [ref=e577]:
+                          - generic [ref=e578]:
+                            - generic [ref=e579]: 模型名称
+                            - button [ref=e580] [cursor=pointer]
+                        - columnheader "输入Token范围" [ref=e584]:
+                          - generic [ref=e585]:
+                            - generic [ref=e586]: 输入Token范围
+                            - button [ref=e587] [cursor=pointer]
+                        - columnheader "思考模式" [ref=e591]:
+                          - generic [ref=e592]:
+                            - generic [ref=e593]: 思考模式
+                            - button [ref=e594] [cursor=pointer]
+                        - columnheader [ref=e598]:
+                          - generic [ref=e599]:
+                            - generic [ref=e601]:
+                              - text: 时段
+                              - generic [ref=e602] [cursor=pointer]
+                            - button [ref=e606] [cursor=pointer]
+                        - columnheader "输入价格" [ref=e610] [cursor=pointer]
+                        - columnheader "输出价格" [ref=e616] [cursor=pointer]
+                        - columnheader "输入价格（隐式命中缓存）" [ref=e622] [cursor=pointer]
+                        - columnheader "输入价格（显式创建缓存）" [ref=e628] [cursor=pointer]
+                        - columnheader "输入价格（显式命中缓存）" [ref=e634] [cursor=pointer]
+                    - rowgroup [ref=e640]:
+                      - generic [ref=e641]:
+                        - generic [ref=e642]: 模型名称
+                        - button [ref=e643] [cursor=pointer]
+                      - generic [ref=e647]:
+                        - generic [ref=e648]: 输入Token范围
+                        - button [ref=e649] [cursor=pointer]
+                      - generic [ref=e653]:
+                        - generic [ref=e654]: 思考模式
+                        - button [ref=e655] [cursor=pointer]
+                      - generic [ref=e659]:
+                        - generic [ref=e661]:
+                          - text: 时段
+                          - generic [ref=e662] [cursor=pointer]
+                        - button [ref=e666] [cursor=pointer]
+                      - generic [ref=e670]: 输入价格
+                      - generic [ref=e675]: 输出价格
+                      - generic [ref=e680]: 输入价格（隐式命中缓存）
+                      - generic [ref=e685]: 输入价格（显式创建缓存）
+                      - generic [ref=e690]: 输入价格（显式命中缓存）
+                      - row [ref=e695]:
+                        - cell "deepseek-v4-pro-0813" [ref=e696]
+                        - cell "-" [ref=e699]
+                        - cell "-" [ref=e700]
+                        - cell "错峰" [ref=e701]
+                        - cell "¥4.813" [ref=e702]
+                        - cell "¥14.438" [ref=e705]
+                        - cell "¥0.481" [ref=e708]
+                        - cell "-" [ref=e711]
+                        - cell "-" [ref=e712]
+                      - row [ref=e713]:
+                        - cell "deepseek-v4-pro-0813" [ref=e714]
+                        - cell "-" [ref=e717]
+                        - cell "-" [ref=e718]
+                        - cell "忙时" [ref=e719]
+                        - cell "¥9.625" [ref=e720]
+                        - cell "¥28.875" [ref=e723]
+                        - cell "¥0.963" [ref=e726]
+                        - cell "-" [ref=e729]
+                        - cell "-" [ref=e730]
+                      - row [ref=e731]:
+                        - cell "deepseek-v4-flash-0731" [ref=e732]:
+                          - generic [ref=e733]:
+                            - generic [ref=e734] [cursor=pointer]: deepseek-v4-flash-0731
+                            - generic [ref=e735] [cursor=pointer]
+                        - cell "-" [ref=e739]
+                        - cell "-" [ref=e740]
+                        - cell "错峰" [ref=e741]
+                        - cell "¥1.604" [ref=e742]
+                        - cell "¥4.813" [ref=e745]
+                        - cell "¥0.16" [ref=e748]
+                        - cell "-" [ref=e751]
+                        - cell "-" [ref=e752]
+                      - row [ref=e753]:
+                        - cell "deepseek-v4-flash-0731" [ref=e754]:
+                          - generic [ref=e755]:
+                            - generic [ref=e756] [cursor=pointer]: deepseek-v4-flash-0731
+                            - generic [ref=e757] [cursor=pointer]
+                        - cell "-" [ref=e761]
+                        - cell "-" [ref=e762]
+                        - cell "忙时" [ref=e763]
+                        - cell "¥3.208" [ref=e764]
+                        - cell "¥9.625" [ref=e767]
+                        - cell "¥0.321" [ref=e770]
+                        - cell "-" [ref=e773]
+                        - cell "-" [ref=e774]
+                      - row [ref=e775]:
+                        - cell "kimi-k3" [ref=e776]
+                        - cell "-" [ref=e779]
+                        - cell "-" [ref=e780]
+                        - cell "-" [ref=e781]
+                        - cell "¥21.875" [ref=e782]
+                        - cell "¥109.376" [ref=e785]
+                        - cell "¥2.188" [ref=e788]
+                        - cell "-" [ref=e791]
+                        - cell "-" [ref=e792]
+                      - row [ref=e793]:
+                        - cell "kimi-k2.7-code" [ref=e794]
+                        - cell "-" [ref=e797]
+                        - cell "-" [ref=e798]
+                        - cell "-" [ref=e799]
+                        - cell "¥7.119" [ref=e800]
+                        - cell "¥29.977" [ref=e803]
+                        - cell "¥1.424" [ref=e806]
+                        - cell "-" [ref=e809]
+                        - cell "-" [ref=e810]
+                      - row [ref=e811]:
+                        - cell "glm-5.2-fast-preview" [ref=e812]
+                        - cell "-" [ref=e815]
+                        - cell "-" [ref=e816]
+                        - cell "-" [ref=e817]
+                        - cell "¥20.984" [ref=e818]
+                        - cell "¥65.948" [ref=e821]
+                        - cell "¥4.196" [ref=e824]
+                        - cell "-" [ref=e827]
+                        - cell "-" [ref=e828]
+                      - row [ref=e829]:
+                        - cell "glm-5.2" [ref=e830]
+                        - cell "-" [ref=e833]
+                        - cell "-" [ref=e834]
+                        - cell "-" [ref=e835]
+                        - cell "¥10.492" [ref=e836]
+                        - cell "¥32.974" [ref=e839]
+                        - cell "¥2.098" [ref=e842]
+                        - cell "-" [ref=e845]
+                        - cell "-" [ref=e846]
+                      - row [ref=e847]:
+                        - cell "glm-5.1" [ref=e848]
+                        - cell "-" [ref=e851]
+                        - cell "-" [ref=e852]
+                        - cell "-" [ref=e853]
+                        - cell "¥10.492" [ref=e854]
+                        - cell "¥32.974" [ref=e857]
+                        - cell "¥1.948" [ref=e860]
+                        - cell "-" [ref=e863]
+                        - cell "-" [ref=e864]
+                      - row [ref=e865]:
+                        - cell "deepseek-v4.1-flash" [ref=e866]
+                        - cell "-" [ref=e869]
+                        - cell "-" [ref=e870]
+                        - cell "错峰" [ref=e871]
+                        - cell "¥1.094" [ref=e872]
+                        - cell "¥4.375" [ref=e875]
+                        - cell "¥0.109" [ref=e878]
+                        - cell "-" [ref=e881]
+                        - cell "-" [ref=e882]
+                  - list [ref=e884]:
+                    - listitem [ref=e885]: 共14条
+                    - listitem "上一页" [ref=e886]:
+                      - button [disabled] [ref=e887]:
+                        - img "left" [ref=e888]
+                    - listitem "1" [ref=e891] [cursor=pointer]
+                    - listitem "2" [ref=e893] [cursor=pointer]
+                    - listitem "下一页" [ref=e895] [cursor=pointer]:
+                      - button [ref=e896]:
+                        - img "right" [ref=e897]
+                    - listitem [ref=e900]:
+                      - generic [ref=e901]:
+                        - generic "10 条/页" [ref=e902]:
+                          - text: 10 条/页
+                          - combobox "页码" [ref=e903]
+                        - img "down" [ref=e905]
+  - iframe [ref=e908]
+  - iframe [ref=e909]
