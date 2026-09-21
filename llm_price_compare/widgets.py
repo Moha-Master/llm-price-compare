@@ -717,7 +717,14 @@ class ProgressCover(Vertical):
     """
 
     DEFAULT_CSS = """
-    ProgressCover { width: 100%; height: 100%; background: $boost; align: center middle; }
+    ProgressCover {
+        width: 100%;
+        height: 100%;
+        background: $surface;
+        align: center middle;
+        border: round $secondary;
+        margin: 1 1 0 1;
+    }
     ProgressCover > ProgressBar { width: 60%; min-width: 24; }
     ProgressCover > .load-cap { width: 100%; content-align: center bottom; color: $text-muted; }
     """
@@ -740,9 +747,19 @@ class BusyOverlay(ModalScreen[None]):
     """
 
     DEFAULT_CSS = """
-    BusyOverlay { align: center middle; }
-    BusyOverlay > Vertical { width: 100%; height: 1fr; align: center middle; background: $boost; }
-    BusyOverlay .busy-box { width: auto; min-width: 28; padding: 1 4; border: round $primary; background: $surface; align-horizontal: center; }
+    BusyOverlay {
+        align: center middle;
+        background: $boost;
+    }
+    BusyOverlay .busy-box {
+        width: auto;
+        height: auto;
+        min-width: 28;
+        padding: 1 4;
+        border: round $primary;
+        background: $surface;
+        align-horizontal: center;
+    }
     BusyOverlay LoadingIndicator { width: 100%; height: 1; }
     BusyOverlay ProgressBar { width: 100%; margin-bottom: 1; }
     BusyOverlay #busy-msg { width: 100%; content-align: center middle; }
@@ -756,15 +773,14 @@ class BusyOverlay(ModalScreen[None]):
         self._done = 0.0
 
     def compose(self):
-        with Vertical():
-            with Vertical(classes="busy-box"):
-                if self._mode == "bar":
-                    yield ProgressBar(total=None, show_bar=True, show_percentage=False, show_eta=False)
-                elif self._mode == "percent":
-                    yield ProgressBar(total=self._total, show_percentage=True, show_eta=False)
-                else:
-                    yield LoadingIndicator()
-                yield Static(self._message, id="busy-msg")
+        with Vertical(classes="busy-box"):
+            if self._mode == "bar":
+                yield ProgressBar(total=None, show_bar=True, show_percentage=False, show_eta=False)
+            elif self._mode == "percent":
+                yield ProgressBar(total=self._total, show_percentage=True, show_eta=False)
+            else:
+                yield LoadingIndicator()
+            yield Static(self._message, id="busy-msg")
 
     def set_message(self, message: str) -> None:
         self._message = message
