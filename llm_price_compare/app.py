@@ -1,4 +1,4 @@
-"""Textual 应用入口：全局配置、两段式数据加载、状态栏与首启向导编排。
+"""Textual 应用入口：全局配置、一次性数据加载（带确定式进度）、状态栏与首启向导编排。
 
 外框遵循统一规范（见 AGENTS.md 第一部分）：无 Header / Footer，App 仅 yield 一个
 底部 `#status`；看板即根屏（启动直接进数据视图）。键位：Ctrl+Q 任意退出、Ctrl+S 设置。
@@ -8,17 +8,64 @@ from __future__ import annotations
 import asyncio
 from pathlib import Path
 
+from rich.spinner import SPINNERS
+from rich.text import Text
 from textual import work
 from textual.app import App, ComposeResult
 from textual.binding import Binding
+from textual.widget import Widget
 from textual.widgets import Static
 
 from . import core
 from .config import config_exists, get_default_config_path
+from .widgets import ProgressCover, busy
+
+_DOTS = SPINNERS["dots"]
 
 
 class StatusBar(Static):
-    """底部状态栏：展示最近一次操作结果 / 进行中提示。"""
+    """底部状态栏：展示最近一次操作结果 / 进行中提示；spinner=True 时显示点阵转圈。"""
+
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        self._text = ""
+        self._busy = False
+        self._frame = 0
+        self._timer = None
+
+    def render(self) -> Text:
+        if self._busy:
+            glyph = _DOTS["frames"][self._frame % len(_DOTS["frames"])]
+            return Text.assemble((glyph, "bold"), " ", self._text)
+        return Text(self._text)
+
+    def set_status(self, text: str) -> None:
+        self._busy = False
+        self._text = text
+        self._stop_timer()
+        self.refresh()
+
+    def set_spinner(self, text: str) -> None:
+        self._busy = True
+        self._text = text
+        self._ensure_timer()
+        self.refresh()
+
+    def _ensure_timer(self) -> None:
+        if self._timer is None and self.is_mounted:
+            self._timer = self.set_interval(_DOTS["interval"] / 1000, self._tick)
+
+    def _stop_timer(self) -> None:
+        if self._timer is not None:
+            self._timer.stop()
+            self._timer = None
+
+    def _tick(self) -> None:
+        self._frame += 1
+        self.refresh()
+
+    def on_mount(self) -> None:
+        self._ensure_timer()
 
 
 class PriceCompareApp(App):
@@ -44,13 +91,29 @@ class PriceCompareApp(App):
     def compose(self) -> ComposeResult:
         yield StatusBar("", id="status")
 
+    def get_loading_widget(self) -> Widget:
+        """全局默认：任意控件 .loading=True 时用 indeterminate 进度条覆盖其区域。"""
+        return ProgressCover()
+
     def status(self, message: str, kind: str = "") -> None:
         try:
             bar = self.query_one("#status", StatusBar)
         except Exception:  # noqa: BLE001
             return
         bar.update_classes({"ok": kind == "ok", "warn": kind == "warn", "err": kind == "err"})
-        bar.update(message)
+        bar.set_status(message)
+
+    def spinner(self, on: bool, message: str = "加载中…") -> None:
+        """状态栏点阵 spinner（无遮罩、不阻断输入）。"""
+        try:
+            bar = self.query_one("#status", StatusBar)
+        except Exception:  # noqa: BLE001
+            return
+        bar.update_classes({})
+        if on:
+            bar.set_spinner(message)
+        else:
+            bar.set_status("")
 
     def notify_ok(self, message: str) -> None:
         self.status(message, "ok")
@@ -125,54 +188,52 @@ class PriceCompareApp(App):
 
     @work(exclusive=True)
     async def load_data(self) -> None:
-        """两段式加载：先用 headline 价秒开界面，再拉端点补算期望价。
+        """一次性加载：并发抓取全部端点，用确定式进度条反馈（模型总数先验已知），完成后单次渲染。
 
-        OpenRouter 端点接口在走代理时动辄十几秒，先出图再补数据比长时间空等更好。
-        耗时抓取放在 asyncio.to_thread 里（core 为同步阻塞），其进度日志经
-        _log → call_from_thread 安全投回 UI 线程，无需自建队列+轮询。
+        耗时抓取放在 asyncio.to_thread（core 为同步阻塞）；每个模型完成时经
+        on_done → call_from_thread 推进全屏遮罩内的进度条，无需自建队列 / 轮询。
         """
-        self.status("🔄 第一阶段：拉取官方与 headline 价格…")
         try:
             config = await asyncio.to_thread(core.load_config, self.config_path)
-            models = await asyncio.to_thread(core.fetch_openrouter_models)
-            phase1 = await asyncio.to_thread(
-                core.build_snapshot,
-                self.config_path,
-                log=self._log,
-                endpoints_mode=core.ENDPOINTS_NONE,
-                endpoints_cache={},
-                or_models=models,
-            )
+        except Exception as exc:  # noqa: BLE001
+            self.notify_err(f"❌ 配置读取失败：{type(exc).__name__}: {exc}")
+            return
+        ids = core.config_or_model_ids(config)
+        total = len(ids)
+
+        try:
+            async with busy(
+                self, "📡 正在拉取端点数据", mode="percent" if total else "bar", total=total
+            ) as ov:
+                def _on_done() -> None:  # 由 core 的抓取线程调用，投回 UI 线程推进进度
+                    self.call_from_thread(ov.advance)
+
+                models, cache = await asyncio.to_thread(
+                    self._fetch_all, ids, _on_done if total else None
+                )
+                snapshot = await asyncio.to_thread(
+                    core.build_snapshot,
+                    self.config_path,
+                    log=self._log,
+                    endpoints_mode=core.ENDPOINTS_NONE,
+                    endpoints_cache=cache,
+                    or_models=models,
+                )
         except Exception as exc:  # noqa: BLE001
             self.notify_err(f"❌ 加载失败：{type(exc).__name__}: {exc}")
             return
 
-        if not phase1.pairs:
+        if not snapshot.pairs:
             self.status("❌ 没有可用数据（检查配置的 groups / 网络）", "err")
             return
-
-        self.snapshot = phase1
-        await self._render(final=False)
-
-        # 第二阶段：并发拉取全部端点，重算期望价
-        self.status("⏳ 已出图（最低价口径），正在补算期望价…", "warn")
-        try:
-            ids = core.config_or_model_ids(config)
-            cache = await asyncio.to_thread(core.fetch_endpoints_many, ids, log=self._log)
-            phase2 = await asyncio.to_thread(
-                core.build_snapshot,
-                self.config_path,
-                log=self._log,
-                endpoints_mode=core.ENDPOINTS_NONE,
-                endpoints_cache=cache,
-                or_models=models,
-            )
-        except Exception as exc:  # noqa: BLE001
-            self.status(f"⚠️ 端点数据拉取失败，保留最低价视图：{type(exc).__name__}: {exc}", "warn")
-            return
-
-        self.snapshot = phase2
+        self.snapshot = snapshot
         await self._render(final=True)
+
+    def _fetch_all(self, ids: list[str], on_done) -> tuple[dict, dict]:
+        """在工作线程内完成 OpenRouter headline + 全部端点的抓取，返回 (models, endpoints_cache)。"""
+        models = core.fetch_openrouter_models(log=self._log)
+        cache = core.fetch_endpoints_many(ids, log=self._log, on_done=on_done) if ids else {}
+        return models, cache
 
     async def _render(self, *, final: bool) -> None:
         if self._dashboard is not None:

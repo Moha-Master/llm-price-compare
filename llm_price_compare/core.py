@@ -406,18 +406,22 @@ def fetch_endpoints_many(
     model_ids: list[str],
     *,
     log: Callable[[str], None] = NoopLog,
+    on_done: Callable[[], None] | None = None,
     max_workers: int = 8,
 ) -> dict:
     """并发拉取多个模型的端点数据。
 
     输出顺序仍按传入顺序（即 config 顺序）打印，保证与串行版本文本一致，
-    但总耗时从“累加”变为“取最慢一个”。
+    但总耗时从“累加”变为“取最慢一个”。`on_done`（可在工作线程中调用）在每
+    个模型完成时触发一次，供上层驱动确定式进度条。
     """
     if not model_ids:
         return {}
     if len(model_ids) == 1:
         data = fetch_model_endpoints(model_ids[0])
         log(f"   {'✅' if data else '❌'} {model_ids[0]}")
+        if on_done is not None:
+            on_done()
         return {model_ids[0]: data}
 
     with ThreadPoolExecutor(max_workers=min(max_workers, len(model_ids))) as pool:
@@ -427,6 +431,8 @@ def fetch_endpoints_many(
             data = future.result()
             results[mid] = data
             log(f"   {'✅' if data else '❌'} {mid}")
+            if on_done is not None:
+                on_done()
     return results
 
 

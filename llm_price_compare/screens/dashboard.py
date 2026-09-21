@@ -14,7 +14,6 @@ from textual.widget import Widget
 from textual.widgets import (
     Button,
     DataTable,
-    LoadingIndicator,
     Select,
     Static,
     TabbedContent,
@@ -151,7 +150,6 @@ def build_overview_pane(snapshot: core.Snapshot) -> TabPane:
             f"{snapshot.headline_count} 个模型 · 数据时间 "
             f"{snapshot.fetched_at.strftime('%H:%M:%S')} · "
             "节省 = 最优 OpenRouter 版本相对官方价的降幅"
-            + ("  ⏳ 期望价计算中，当前为最低价估算" if snapshot.pending_expected else "")
         ),
         Section("📊 基础价横向对比（输入 + 输出 直算口径）"),
         make_table(core.build_overview_table(snapshot), fixed_columns=1),
@@ -265,20 +263,9 @@ class DashboardScreen(PageScreen):
         self.app._dashboard = self
         if self.app.snapshot is None:
             # 看板就绪后再触发首次抓取（此时 _dashboard 已回填，_render 回调有效）。
-            self._mount_loading()
             self.app.load_data()
         else:
             self.call_after_refresh(self._kick_rebuild)
-
-    def _mount_loading(self) -> None:
-        host = self.query_one("#tabs-host", TabsHost)
-        host.mount(
-            VerticalScroll(
-                LoadingIndicator(),
-                Hint("📡 正在拉取官方与 OpenRouter 价格并计算…"),
-                id="loading",
-            )
-        )
 
     def _kick_rebuild(self) -> None:
         self.run_worker(self.rebuild(final=True), exclusive=True)
@@ -316,13 +303,10 @@ class DashboardScreen(PageScreen):
                 f"{sum(len(p.versions) for p in snapshot.pairs)} 个 OR 版本 · "
                 f"汇率 {snapshot.exchange_rate} · {snapshot.fetched_at.strftime('%H:%M:%S')}"
             )
-            if final and not snapshot.pending_expected:
-                self.app.status(
-                    f"✅ 就绪 · {snapshot.headline_count} 个模型价 · Ctrl+R 刷新 · [ ] 切页",
-                    "ok",
-                )
-            else:
-                self.app.status("⏳ 已显示最低价视图 · 期望价计算中…", "warn")
+            self.app.status(
+                f"✅ 就绪 · {snapshot.headline_count} 个模型价 · Ctrl+R 刷新 · [ ] 切页",
+                "ok",
+            )
 
             self._focus_active_pane()
         finally:
