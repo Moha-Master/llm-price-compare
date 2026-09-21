@@ -22,6 +22,12 @@ class BaseScraper(ABC):
     PROVIDER_NAME: str = ""
     SOURCE_URL: str = ""
 
+    # 定价策略「标准暴露」：每个抓取器声明自己支持的取价策略 (value, label)。
+    # UI 的下拉、core 的取价都以此为准，不再硬编码。默认只有一个「官方价」。
+    # 若提供商存在多时段价（如 DeepSeek 峰/谷），子类覆写本列表与 select_prices()。
+    PRICING_STRATEGIES: list[tuple[str, str]] = [("official", "官方价")]
+    DEFAULT_STRATEGY: str = "official"
+
     def __init__(self):
         self.session = requests.Session()
         self.session.headers.update({
@@ -65,6 +71,25 @@ class BaseScraper(ABC):
             if target in mid or mid in target or target in mname:
                 return model
         return None
+
+    @classmethod
+    def pricing_strategies(cls) -> list[tuple[str, str]]:
+        """返回本提供商支持的取价策略 [(value, label), ...]。"""
+        return cls.PRICING_STRATEGIES
+
+    @classmethod
+    def select_prices(cls, item: dict, strategy: str | None = None) -> dict:
+        """从抓取到的某模型条目中，按定价策略挑出四维价（元/百万 token）。
+
+        默认实现适用于「单一官方价」的抓取器；含多时段价的（DeepSeek 峰/谷）
+        由子类覆写。core 层只认约定的 input/output/cache_* 键，不感知时段细节。
+        """
+        return {
+            "input": item.get("input_price", 0.0),
+            "output": item.get("output_price", 0.0),
+            "cache_read": item.get("cache_read_price", 0.0),
+            "cache_write": item.get("cache_write_price", 0.0),
+        }
 
     def _get_json(self, url: str, **kwargs) -> Any:
         """GET 请求并解析 JSON"""

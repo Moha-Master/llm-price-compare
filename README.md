@@ -38,11 +38,16 @@ llm-price                       # 自动定位配置（见下）
 llm-price path/to/config.yaml   # 显式指定配置
 ```
 
-**首次运行**若目标配置文件不存在，会先进入**配置向导**：选择「推荐内置对比组」或「空白」，设置汇率，确认后写入配置并自动开始抓取。之后每次启动直接进入界面。
+**首次运行**若目标配置文件不存在，会先进入**配置向导**：选择「推荐内置对比组」或「空白」，设置汇率后写盘。选「空白」时会接着进入设置页并给出去噪引导，带你亲手添加第一个对比组。之后每次启动直接进入界面。
 
 配置查找顺序：命令行参数 > 当前目录 `config.yaml` > 用户配置 `~/.config/llm-price-compare/config.yaml`。可用环境变量 `LLM_PRICE_COMPARE_CONFIG_DIR` 覆盖配置目录。
 
-界面里随时按 `ctrl+s` 打开**设置页**（Tabbed：常规 / 场景 / 对比组），可视化增删改汇率、场景、对比组与模型条目；保存后自动重新抓取并热刷新，无需退出或手改文件。
+界面里随时按 `ctrl+s` 打开**设置页**（Tabbed：常规 / 场景 / 对比组），可视化增删改汇率、场景、对比组与模型条目；保存后自动重新抓取并热刷新，无需退出或手改文件。设置页交互：
+
+- **对比组**：左侧列表**单击切换**当前组、**双击重命名**；右侧模型条目**双击直接进入编辑**（也可用底部「编辑」按钮）。
+- **场景**：每个 token 占比带**可见字段名**并以**百分比**显示（如 `85%`，输入 `85` 或 `85%` 均可，存储仍是 `0.85`）。
+- **模型**：定价策略下拉**随来源类型动态生成**，不再只对 OpenRouter 生效——选 DeepSeek 会给出「峰价 / 谷价 / 自动」，选其他官方来源给出其自身支持的策略，选 OpenRouter 为「最低 / 期望」。
+
 
 启动后立即开始拉取数据并计算，无需任何操作。
 
@@ -104,18 +109,20 @@ scenarios:                  # 场景 = 一次请求里各类 token 的占比，�
       output: 0.01
 
 groups:                     # 每个 group = 一个对比 tab
-  - display_name: "DeepSeek V4 Flash"
+  - display_name: "DeepSeek V4.1 Flash"
     models:
       - name: "DeepSeek 官方"           # 官方模型：只填 id + type，价格自动抓取
         id: "deepseek-flash"
         type: "deepseek"               # 定价来源：deepseek/zhipu/alibaba/xiaomi/kimi
-      - name: "V4F 0423"
-        id: "deepseek/deepseek-v4-flash"   # OpenRouter 模型 id（~ 前缀表示聚合 id）
+        pricing: "auto"                # 可选：来源自带的取价策略（DeepSeek: peak/valley/auto，缺省 auto）
+      - name: "OpenRouter"
+        id: "deepseek/deepseek-4.1-flash"   # OpenRouter 模型 id（~ 前缀表示聚合 id）
         type: "openrouter"             # 定价来源为 openrouter
-        pricing: "expected"            # lowest | expected，缺省 lowest
+        pricing: "expected"            # openrouter: lowest | expected，缺省 lowest
 ```
 
-组内**第一个官方模型**（`type` 非 `openrouter`）即作为该 tab 的参考基准价；若组内没有官方模型，则取第一个条目作基准。
+组内**第一个官方模型**（`type` 非 `openrouter`）即作为该 tab 的参考基准价；若组内没有官方模型，则取第一个条目作基准。`pricing` 字段的可选值由对应来源**标准暴露**（见下）：OpenRouter 为 `lowest/expected`；DeepSeek 为 `peak/valley/auto`；其余官方来源目前只有一种「官方价」。
+
 
 ## 官方定价自动抓取
 
@@ -123,7 +130,7 @@ groups:                     # 每个 group = 一个对比 tab
 
 | type | 来源 | 抓取方式 |
 | --- | --- | --- |
-| `deepseek` | api-docs.deepseek.com | 解析定价页 HTML 表格 |
+| `deepseek` | api-docs.deepseek.com | 解析定价页 HTML 表格（含峰/谷双时段 → `peak/valley/auto`） |
 | `zhipu` | docs.bigmodel.cn | 解析定价页 HTML 表格 |
 | `alibaba` | bailian.console.aliyun.com | 解析百炼中国内地 Qwen 定价 |
 | `xiaomi` | mimo.mi.com | 解析按量计费页表格（国内价） |
@@ -132,7 +139,11 @@ groups:                     # 每个 group = 一个对比 tab
 
 **健壮性**：抓取器输出统一的结构化格式（`input/output/cache_read/cache_write`）。若某页面改版导致解析失败，会自动回退到该提供商内置的定价快照，并在状态栏提示「⚠️ 使用降级数据」，程序绝不因此崩溃。
 
-## 定价策略
+## 定价策略（按来源标准暴露）
+
+每个定价来源通过统一接口 `pricing_strategies()` 声明自己支持的取价策略，设置页下拉与 `pricing` 字段都据此动态生成，不再硬编码。
+
+**OpenRouter**（`type: openrouter`）：
 
 | 策略 | 含义 | 数据来源 |
 | --- | --- | --- |
@@ -144,6 +155,16 @@ groups:                     # 每个 group = 一个对比 tab
 $$w_i = \frac{1}{P_{input,i}^{\,2}} \times uptime_i \qquad\Longrightarrow\qquad E[P_k] = \frac{\sum_i w_i P_{k,i}}{\sum_i w_i}$$
 
 即价格越低、可用性越高的供应商拿到越大的路由权重（价格的**平方**反比），再对输入 / 输出 / 缓存读 / 缓存写四个维度分别用同一组权重求加权平均。已下架或无报价的供应商不参与计算。若端点数据缺失或全部不可用，自动回退到 `lowest` 并标注 `⚠️ 端点无可用价格，已回退最低价`。
+
+**官方来源**：目前 DeepSeek 定价页把每个价类拆成「高峰 / 空闲」两行，抓取器据此暴露三种策略：
+
+| 策略 | 含义 |
+| --- | --- |
+| `peak` | 高峰时段价 |
+| `valley` | 空闲时段价（官方恒为峰价一半） |
+| `auto` | 按**当前北京时间(UTC+8)**自动取峰或谷：周一至周五 09:00–12:00、14:00–18:00 为峰，其余（含周末、夜间）为谷 |
+
+其余官方来源（智谱 / 小米 / Kimi / 阿里）目前只有单一「官方价」，下拉里即那一项。峰谷价由抓取器**逐格解析两组真实价**（不靠峰价÷2 推算，防止官方未来改折扣规则；谷价缺失时才回落折半）。
 
 ## 加载行为
 

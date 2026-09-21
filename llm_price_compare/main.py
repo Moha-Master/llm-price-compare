@@ -332,16 +332,24 @@ class PriceCompareApp(App):
 
     @work(exclusive=True)
     async def bootstrap(self) -> None:
-        """启动流程：缺配置先走向导，随后加载数据。"""
+        """启动流程：缺配置先走向导；选「空白」则接着打开引导式设置页，再加载数据。"""
         target = self.config_path or str(get_default_config_path())
         self.config_path = target
         if not config_exists(target):
             self._status("📭 未发现配置，正在启动配置向导…")
             result = await self.push_screen_wait(SetupScreen(target))
-            if result != "done":
+            if result in (None, "cancel"):
                 self.exit()
                 return
+            if result == "blank":
+                # 空白模板：复用设置页的「对比组」并附引导文本，让用户亲手建第一个组
+                try:
+                    cfg = core.load_config(target)
+                    await self.push_screen_wait(SettingsScreen(cfg, target, guide=True))
+                except Exception as exc:  # noqa: BLE001
+                    self._status(f"⚠️ 设置页初始化失败：{type(exc).__name__}: {exc}", "warn")
         self.load_data()
+
 
     # ---------------- 设置页 ----------------
 

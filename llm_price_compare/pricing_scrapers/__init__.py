@@ -59,3 +59,27 @@ def get_scraper(provider: str) -> BaseScraper:
     if scraper_cls is None:
         raise ValueError(f"未知的提供商: {provider}，可用的提供商: {list(PROVIDER_SCRAPERS.keys())}")
     return scraper_cls()
+
+
+# ---- 定价策略标准查询（供 config / UI 动态生成下拉，不再硬编码）---- #
+_STRATEGY_FALLBACK: list[tuple[str, str]] = [("official", "官方价")]
+
+
+def provider_pricing_strategies(provider: str) -> list[tuple[str, str]]:
+    """返回某官方提供商抓取器支持的取价策略 [(value, label), ...]。"""
+    cls = PROVIDER_SCRAPERS.get((provider or "").lower())
+    return cls.pricing_strategies() if cls else list(_STRATEGY_FALLBACK)
+
+
+def provider_default_strategy(provider: str) -> str:
+    cls = PROVIDER_SCRAPERS.get((provider or "").lower())
+    return cls.DEFAULT_STRATEGY if cls else "official"
+
+
+def strategy_label(provider: str, value: str | None) -> str:
+    """把策略 value 反查为中文 label（未知则原样返回）。"""
+    for v, label in provider_pricing_strategies(provider):
+        if v == value:
+            return label
+    return value or "—"
+

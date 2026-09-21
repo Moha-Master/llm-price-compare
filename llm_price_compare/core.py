@@ -651,15 +651,20 @@ def collect_group_prices(
                         break
 
             if model_pricing:
-                # 填充模型价格
-                prices_cny = {
-                    "input": model_pricing["input_price"],
-                    "output": model_pricing["output_price"],
-                    "cache_read": model_pricing.get("cache_read_price", 0.0),
-                    "cache_write": model_pricing.get("cache_write_price", 0.0),
-                }
-                # 自动补全可能缺失的价格
+                # 按该模型配置的取价策略（官方来源标准暴露，如 DeepSeek 峰/谷/自动）选价。
+                variant = m.get("pricing")
+                try:
+                    prices_cny = get_scraper(mtype).select_prices(model_pricing, variant)
+                except Exception:  # noqa: BLE001
+                    prices_cny = {
+                        "input": model_pricing.get("input_price", 0.0),
+                        "output": model_pricing.get("output_price", 0.0),
+                        "cache_read": model_pricing.get("cache_read_price", 0.0),
+                        "cache_write": model_pricing.get("cache_write_price", 0.0),
+                    }
+                # cache_* 缺省回落：自动补全可能缺失的价格
                 prices_cny = normalize_prices(prices_cny)
+
 
                 model = ModelPrice(
                     name=model_name,

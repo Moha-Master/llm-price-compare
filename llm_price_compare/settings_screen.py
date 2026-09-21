@@ -2,16 +2,24 @@
 settings_screen.py — 程序内设置页
 
 提供汇率、场景、对比组与模型的可视化增删改；保存后写回 config.yaml。
-组列表与模型列表均用 DataTable 实现，规避 Textual 各版本 ListView/OptionList 的 API 差异。
+
+设计要点：
+- 组列表 / 模型列表用 DataTable。Textual 8.2.8 的 Click 事件不带 button_count，
+  且 RowSelected 仅在「重复点击同一已选中单元格」时触发，故用 ClickTable 子类
+  以「时间窗 + 同键」区分单击 / 双击，派生一等公民事件 RowClicked / RowDoubleClicked。
+- 定价策略不再硬编码：下拉内容由 cfg.pricing_strategies_for(type) 动态生成
+  （官方来源由各抓取器标准暴露，如 DeepSeek 峰/谷/自动；openrouter 为最低/期望）。
 """
 
 from __future__ import annotations
 
 import copy
+import time
 from pathlib import Path
 
 from textual import on
 from textual.containers import Horizontal, Vertical, VerticalScroll
+from textual.message import Message
 from textual.screen import ModalScreen, Screen
 from textual.widgets import (
     Button,
@@ -34,8 +42,122 @@ TOKEN_ROWS: list[tuple[str, str]] = [
 ]
 
 
+def _frac_to_pct(frac: object) -> str:
+    """0.85 → '85%'（去掉浮点尾零）。"""
+    try:
+        return f"{float(frac) * 100:g}%"
+    except (TypeError, ValueError):
+        return "0%"
+
+
+def _pct_to_frac(raw: str) -> float:
+    """'85%' / '85' → 0.85；无法解析按 0。"""
+    s = raw.strip().replace("％", "%").replace("%", "").strip()
+    if not s:
+        return 0.0
+    try:
+        return float(s) / 100.0
+    except ValueError:
+        return 0.0
+
+
+class ClickTable(DataTable):
+    """带单击 / 双击区分的 DataTable（基于点击时间窗 + 同行判定）。"""
+
+    DOUBLE_DELAY = 0.5
+
+    class RowClicked(Message):
+        def __init__(self, control: ClickTable, row_index: int) -> None:
+            self.row_index = row_index
+            self._row_control = control
+            super().__init__()
+
+        @property
+        def control(self) -> ClickTable:
+            return self._row_control
+
+    class RowDoubleClicked(Message):
+        def __init__(self, control: ClickTable, row_index: int) -> None:
+            self.row_index = row_index
+            self._row_control = control
+            super().__init__()
+
+        @property
+        def control(self) -> ClickTable:
+            return self._row_control
+
+    def __init__(self, **kwargs) -> None:
+        super().__init__(**kwargs)
+        self._last_row: int | None = None
+        self._last_t = 0.0
+
+    async def _on_click(self, event) -> None:
+        row = event.style.meta.get("row")
+        await super()._on_click(event)  # 让基线移动光标 / 处理表头点击
+        if row is None or row < 0:
+            return
+        now = time.monotonic()
+        if self._last_row == row and now - self._last_t < self.DOUBLE_DELAY:
+            self._last_row = None
+            self.post_message(self.RowDoubleClicked(self, row))
+        else:
+            self._last_row = row
+            self._last_t = now
+            self.post_message(self.RowClicked(self, row))
+
+
+class RenameScreen(ModalScreen["str | None"]):
+    """单行文本重命名弹窗；返回新名字或 None（取消）。"""
+
+    DEFAULT_CSS = """
+    RenameScreen { align: center middle; }
+    RenameScreen > Vertical {
+        width: 50; max-width: 90%; height: auto; padding: 1 2;
+        border: round $primary; background: $surface;
+    }
+    RenameScreen Input { width: 100%; margin: 1 0; }
+    RenameScreen .rn-actions { align-horizontal: right; }
+    RenameScreen .rn-actions Button { margin-left: 2; }
+    """
+
+    def __init__(self, title: str, current: str = "", placeholder: str = "") -> None:
+        super().__init__()
+        self._title = title
+        self._current = current
+        self._placeholder = placeholder
+
+    def compose(self):
+        with Vertical():
+            yield Label(self._title)
+            yield Input(placeholder=self._placeholder, value=self._current, id="rn-input")
+            with Horizontal(classes="rn-actions"):
+                yield Button("取消", id="rn-cancel", variant="default")
+                yield Button("确定", id="rn-ok", variant="primary")
+
+    def on_mount(self) -> None:
+        box = self.query_one("#rn-input", Input)
+        box.focus()
+        box.select_all()
+
+    def _submit(self) -> None:
+        name = self.query_one("#rn-input", Input).value.strip()
+        self.dismiss(name if name else None)
+
+    @on(Button.Pressed, "#rn-ok")
+    def _ok(self) -> None:
+        self._submit()
+
+    @on(Button.Pressed, "#rn-cancel")
+    def _cancel(self) -> None:
+        self.dismiss(None)
+
+    @on(Input.Submitted, "#rn-input")
+    def _entered(self) -> None:
+        self._submit()
+
+
 class ModelEditScreen(ModalScreen["dict | None"]):
-    """新增 / 编辑单个模型条目。"""
+    """新增 / 编辑单个模型条目；定价策略下拉随来源类型动态生成。"""
 
     DEFAULT_CSS = """
     ModelEditScreen { align: center middle; }
@@ -52,8 +174,17 @@ class ModelEditScreen(ModalScreen["dict | None"]):
         super().__init__()
         self._model = dict(model) if model else {}
 
+    def _pricing_options(self, mtype: str) -> list[tuple[str, str]]:
+        """Select 需要 (label, value) 顺序；这里从 (value, label) 翻转。"""
+        return [(label, value) for value, label in cfg.pricing_strategies_for(mtype)]
+
     def compose(self):
         m = self._model
+        mtype = m.get("type", "openrouter")
+        values = [v for v, _ in cfg.pricing_strategies_for(mtype)]
+        cur_pricing = m.get("pricing") or cfg.default_pricing(mtype)
+        if cur_pricing not in values:
+            cur_pricing = values[0] if values else cur_pricing
         with Vertical():
             yield Label("编辑模型" if m else "添加模型")
             yield Input(placeholder="显示名称", value=m.get("name", ""), id="me-name")
@@ -65,20 +196,32 @@ class ModelEditScreen(ModalScreen["dict | None"]):
             yield Label("定价来源 type")
             yield Select(
                 [(t, t) for t in cfg.PROVIDER_TYPES],
-                value=m.get("type", "openrouter"),
+                value=mtype,
                 allow_blank=False,
                 id="me-type",
             )
-            yield Label("定价策略 pricing（仅 openrouter 生效）")
+            yield Label("定价策略 pricing")
             yield Select(
-                [(p, p) for p in cfg.PRICING_STRATEGIES],
-                value=m.get("pricing", "expected"),
+                self._pricing_options(mtype),
+                value=cur_pricing,
                 allow_blank=False,
                 id="me-pricing",
             )
             with Horizontal(classes="edit-actions"):
                 yield Button("取消", id="me-cancel", variant="default")
                 yield Button("确定", id="me-ok", variant="primary")
+
+    @on(Select.Changed, "#me-type")
+    def _type_changed(self) -> None:
+        newt = self.query_one("#me-type", Select).value
+        if not newt:
+            return
+        opts = cfg.pricing_strategies_for(str(newt))
+        values = [v for v, _ in opts]
+        sel = self.query_one("#me-pricing", Select)
+        sel.set_options([(label, value) for value, label in opts])
+        d = cfg.default_pricing(str(newt))
+        sel.value = d if d in values else (values[0] if values else Select.NULL)
 
     @on(Button.Pressed, "#me-cancel")
     def _cancel(self) -> None:
@@ -88,45 +231,58 @@ class ModelEditScreen(ModalScreen["dict | None"]):
     def _ok(self) -> None:
         name = self.query_one("#me-name", Input).value.strip()
         mid = self.query_one("#me-id", Input).value.strip()
-        mtype = self.query_one("#me-type", Select).value
+        mtype = self.query_one("#me-type", Select).value or "openrouter"
         pricing = self.query_one("#me-pricing", Select).value
-        model: dict = {"name": name or mid or mtype, "id": mid, "type": mtype}
-        if mtype == "openrouter":
-            model["pricing"] = pricing
+        model: dict = {"name": name or mid or str(mtype), "id": mid, "type": str(mtype)}
+        # 定价策略对所有来源都持久化（官方来源如 DeepSeek 会取 peak/valley/auto）
+        if pricing and pricing is not Select.NULL:
+            model["pricing"] = str(pricing)
         self.dismiss(model)
 
 
 class SettingsScreen(Screen):
-    """保存后 dismiss(True)，主界面据此热刷新。"""
+    """保存后 dismiss(True)，主界面据此热刷新。guide=True 为首次空白引导。"""
 
     DEFAULT_CSS = """
     SettingsScreen { background: $surface; }
     SettingsScreen #settings-title { padding: 1 2; text-style: bold; }
     SettingsScreen #settings-body { height: 1fr; }
     SettingsScreen .field-label { margin-top: 1; padding-top: 1; }
+    SettingsScreen .tab-hint { padding: 1 1; color: $text; }
     SettingsScreen #rate { width: 24; }
-    SettingsScreen .scenario-row { margin: 0 0 1 0; padding: 1; border: round $secondary; height: auto; }
-    SettingsScreen .scenario-row Input { width: 16; margin-left: 1; }
-    SettingsScreen .scenario-row .sc-name { width: 24; margin-left: 0; }
+
+    SettingsScreen .scenario-row { margin: 0 0 1 0; padding: 1 1; border: round $secondary; height: auto; align-vertical: middle; }
+    SettingsScreen .scenario-row Input.sc-name { width: 18; margin-left: 0; }
+    SettingsScreen .scenario-row Label { margin-left: 1; }
+    SettingsScreen .scenario-row Input.sc-pct { width: 8; margin-left: 0; }
+    SettingsScreen .scenario-row Button.sc-del { margin-left: 1; }
+
     SettingsScreen .group-side { width: 34; padding-right: 1; }
     SettingsScreen #group-table { height: 1fr; }
     SettingsScreen .group-side Button { width: 100%; margin-top: 1; }
+    SettingsScreen .mini-hint { color: $secondary; padding: 1 0 0 0; }
+
     SettingsScreen #group-editor { width: 1fr; padding: 0 0 0 2; }
-    SettingsScreen #group-name { width: 40; }
+    SettingsScreen #group-guide { border: round $success; padding: 1 2; margin-bottom: 1; background: $panel; }
     SettingsScreen #models-table { height: 1fr; margin-top: 1; }
     SettingsScreen .row-actions Button { margin-left: 1; }
-    SettingsScreen #settings-bar { dock: bottom; height: 3; padding: 1 2; align-horizontal: right; background: $panel; }
+
+    SettingsScreen #settings-bar { dock: bottom; height: 3; padding: 0 2; align-horizontal: right; background: $panel; }
     SettingsScreen #settings-bar Button { margin-left: 2; }
     """
 
     BINDINGS = [("escape", "abandon", "放弃修改")]
 
-    def __init__(self, config: dict, target_path: str | Path | None = None) -> None:
+    def __init__(
+        self, config: dict, target_path: str | Path | None = None, *, guide: bool = False
+    ) -> None:
         super().__init__()
         self._config = copy.deepcopy(config)
         self._target = Path(target_path) if target_path else cfg.get_default_config_path()
         self._group_index = 0
         self._edit_index = -1
+        self._rename_target = -1
+        self._guide = guide
 
     # ---------------- 结构 ----------------
 
@@ -139,20 +295,30 @@ class SettingsScreen(Screen):
                     yield Input(id="rate")
             with TabPane("场景", id="tab-scenario"):
                 with VerticalScroll(id="scenario-scroll"):
+                    yield Static(
+                        "各 token 类型占比（百分比），四项相加应为 100%。用于场景成本估算。",
+                        classes="tab-hint",
+                    )
                     yield VerticalScroll(id="scenario-list")
                     yield Button("＋ 添加场景", id="add-scenario", variant="default")
             with TabPane("对比组", id="tab-group"):
                 with Horizontal():
                     with Vertical(classes="group-side"):
                         yield Label("对比组")
-                        yield DataTable(id="group-table")
+                        yield ClickTable(id="group-table")
+                        yield Static("单击切换 · 双击重命名", classes="mini-hint")
                         yield Button("＋ 新建组", id="add-group")
                         yield Button("🗑 删除组", id="del-group", variant="error")
                     with VerticalScroll(id="group-editor"):
-                        yield Label("组显示名", classes="field-label")
-                        yield Input(id="group-name")
-                        yield Label("模型条目（选中下表行后可编辑/删除）", classes="field-label")
-                        yield DataTable(id="models-table")
+                        if self._guide:
+                            yield Static(
+                                "👋 欢迎！还没有对比组。点左侧「＋ 新建组」创建第一个对比组，\n"
+                                "再在右侧「添加模型」加入要互相比较的模型（同一模型的不同来源，\n"
+                                "如官方直连 + OpenRouter）。配好后点右下角「保存」即可自动抓取价格。",
+                                id="group-guide",
+                            )
+                        yield Label("模型条目（单击选择，双击编辑）", classes="field-label")
+                        yield ClickTable(id="models-table")
                         with Horizontal(classes="row-actions"):
                             yield Button("＋ 添加模型", id="add-model")
                             yield Button("✎ 编辑模型", id="edit-model")
@@ -177,6 +343,9 @@ class SettingsScreen(Screen):
         self._refresh_group_table()
         self._load_group()
 
+        if self._guide:
+            self.query_one("#settings-body", TabbedContent).active = "tab-group"
+
     # ---------------- 场景 ----------------
 
     async def _rebuild_scenarios(self) -> None:
@@ -187,14 +356,11 @@ class SettingsScreen(Screen):
             tokens = sc.get("tokens", {})
             children: list = [Input(placeholder="场景名", value=sc.get("name", ""), classes="sc-name")]
             for key, label in TOKEN_ROWS:
-                inp = Input(value=str(tokens.get(key, 0)), classes=f"sc-{key}")
-                inp.tooltip = label
-                children.append(inp)
+                children.append(Label(label))
+                children.append(Input(value=_frac_to_pct(tokens.get(key, 0)), classes=f"sc-pct sc-{key}"))
             # 用 widget 的一等公民 id 携带行号（而非往实例挂私有属性），删除时反解。
-            del_btn = Button("🗑", classes="sc-del", id=f"sc-del-{idx}", variant="error")
-            children.append(del_btn)
-            row = Horizontal(*children, classes="scenario-row")
-            rows.append(row)
+            children.append(Button("🗑", classes="sc-del", id=f"sc-del-{idx}", variant="error"))
+            rows.append(Horizontal(*children, classes="scenario-row"))
         if rows:
             await box.mount(*rows)
 
@@ -212,7 +378,6 @@ class SettingsScreen(Screen):
     @on(Button.Pressed, ".sc-del")
     async def _del_scenario(self, event: Button.Pressed) -> None:
         self._commit_scenarios()
-        # 从被点按钮的 id（"sc-del-<idx>"）反解行号，避免在 widget 实例上挂私有属性。
         try:
             idx = int((event.button.id or "").rsplit("-", 1)[-1])
         except ValueError:
@@ -228,11 +393,7 @@ class SettingsScreen(Screen):
             name = row.query_one(".sc-name", Input).value.strip()
             tokens = {}
             for key, _label in TOKEN_ROWS:
-                raw = row.query_one(f".sc-{key}", Input).value.strip()
-                try:
-                    tokens[key] = float(raw)
-                except ValueError:
-                    tokens[key] = 0.0
+                tokens[key] = _pct_to_frac(row.query_one(f".sc-{key}", Input).value)
             scenarios.append({"name": name or "未命名", "tokens": tokens})
         self._config["scenarios"] = scenarios
 
@@ -263,40 +424,38 @@ class SettingsScreen(Screen):
         table = self.query_one("#models-table", DataTable)
         table.clear()
         if group is None:
-            self.query_one("#group-name", Input).value = ""
             return
-        self.query_one("#group-name", Input).value = group.get("display_name", "")
         for m in group.get("models", []):
-            table.add_row(
-                m.get("name", ""),
-                m.get("id", ""),
-                m.get("type", ""),
-                m.get("pricing", "—") if m.get("type") == "openrouter" else "—",
-            )
+            mtype = m.get("type", "openrouter")
+            strategy = cfg.pricing_label(mtype, m.get("pricing") or cfg.default_pricing(mtype))
+            table.add_row(m.get("name", ""), m.get("id", ""), mtype, strategy)
 
-    @on(DataTable.RowSelected, "#group-table")
-    def _select_group(self, event: DataTable.RowSelected) -> None:
-        self._commit_group_name()
-        self._group_index = self.query_one("#group-table", DataTable).cursor_row
+    @on(ClickTable.RowClicked, "#group-table")
+    def _group_single(self, event: ClickTable.RowClicked) -> None:
+        self._group_index = event.row_index
         self._load_group()
 
-    def _commit_group_name(self) -> None:
-        group = self._current_group()
-        if group is not None:
-            new_name = self.query_one("#group-name", Input).value.strip()
-            group["display_name"] = new_name
-            table = self.query_one("#group-table", DataTable)
-            if 0 <= self._group_index < table.row_count:
-                try:
-                    table.update_cell(self._group_index, 1, new_name or "(未命名)")
-                except Exception:  # noqa: BLE001
-                    pass
+    @on(ClickTable.RowDoubleClicked, "#group-table")
+    def _group_double(self, event: ClickTable.RowDoubleClicked) -> None:
+        self._group_index = event.row_index
+        self._load_group()
+        self._rename_group(event.row_index)
 
-    @on(Input.Changed, "#group-name")
-    def _on_group_name_changed(self) -> None:
-        group = self._current_group()
-        if group is not None:
-            group["display_name"] = self.query_one("#group-name", Input).value.strip()
+    def _rename_group(self, idx: int) -> None:
+        groups = self._config.get("groups", [])
+        if not 0 <= idx < len(groups):
+            return
+        self._rename_target = idx
+        current = groups[idx].get("display_name", "")
+        self.app.push_screen(RenameScreen("重命名对比组", current), self._on_rename)
+
+    def _on_rename(self, name: str | None) -> None:
+        if name is None:
+            return
+        groups = self._config.get("groups", [])
+        if 0 <= self._rename_target < len(groups):
+            groups[self._rename_target]["display_name"] = name
+            self._refresh_group_table()
 
     @on(Button.Pressed, "#add-group")
     def _add_group(self) -> None:
@@ -326,12 +485,17 @@ class SettingsScreen(Screen):
 
     @on(Button.Pressed, "#edit-model")
     def _edit_model(self) -> None:
+        self._open_model_edit(self.query_one("#models-table", DataTable).cursor_row)
+
+    @on(ClickTable.RowDoubleClicked, "#models-table")
+    def _model_double(self, event: ClickTable.RowDoubleClicked) -> None:
+        self._open_model_edit(event.row_index)
+
+    def _open_model_edit(self, idx: int | None) -> None:
         group = self._current_group()
-        table = self.query_one("#models-table", DataTable)
         if group is None or not group.get("models"):
             return
-        idx = table.cursor_row
-        if idx is None or idx < 0:
+        if idx is None or idx < 0 or idx >= len(group["models"]):
             return
         self._edit_index = idx
         self.app.push_screen(ModelEditScreen(group["models"][idx]), self._on_model_result)
@@ -371,7 +535,6 @@ class SettingsScreen(Screen):
         except ValueError:
             pass
         self._commit_scenarios()
-        self._commit_group_name()
         cfg.save_config(self._config, self._target)
         self.dismiss(True)
 

@@ -17,7 +17,7 @@ from . import config as cfg
 
 
 class SetupScreen(ModalScreen[str]):
-    """返回 "done"（已生成配置）或 "cancel"（用户放弃）。"""
+    """返回 "cancel"（用户放弃）或所选模板名 "default" / "blank"（已写盘、请继续）。"""
 
     DEFAULT_CSS = """
     SetupScreen {
@@ -75,7 +75,7 @@ class SetupScreen(ModalScreen[str]):
             yield Select(
                 [
                     ("推荐：内置 DeepSeek / 小米 / 智谱 / 阿里 对比组", "default"),
-                    ("空白：仅一个示例组，稍后自行编辑", "blank"),
+                    ("空白：进入后引导你在设置页添加第一个对比组", "blank"),
                 ],
                 value="default",
                 allow_blank=False,
@@ -105,4 +105,5 @@ class SetupScreen(ModalScreen[str]):
         data.setdefault("exchange_rate", {})["usd_to_cny"] = rate
 
         cfg.save_config(data, self._target)
-        self.dismiss("done")
+        self.dismiss(str(template))
+

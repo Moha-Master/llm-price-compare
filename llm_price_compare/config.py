@@ -15,7 +15,48 @@ DEFAULT_CONFIG_DIR = "~/.config/llm-price-compare"
 # 定价来源类型：openrouter 走官方 REST API，其余走各自定价页抓取器
 OFFICIAL_TYPES = ["deepseek", "zhipu", "alibaba", "xiaomi", "kimi"]
 PROVIDER_TYPES = [*OFFICIAL_TYPES, "openrouter"]
-PRICING_STRATEGIES = ["lowest", "expected"]
+
+# OpenRouter 的两种取价策略（其余来源的策略由各抓取器标准暴露，见 pricing_scrapers）
+OR_PRICING_STRATEGIES: list[tuple[str, str]] = [
+    ("lowest", "最低价(headline)"),
+    ("expected", "期望价(路由加权)"),
+]
+OR_DEFAULT_STRATEGY = "expected"
+
+
+def pricing_strategies_for(ptype: str) -> list[tuple[str, str]]:
+    """按定价来源类型返回其取价策略 [(value, label), ...]。
+
+    统一入口：openrouter 用内置两种；官方提供商转交给对应抓取器
+    （如 DeepSeek 峰/谷/自动），不再在 UI 层硬编码。
+    """
+    if ptype == "openrouter":
+        return list(OR_PRICING_STRATEGIES)
+    try:
+        from .pricing_scrapers import provider_pricing_strategies
+    except ImportError:  # pragma: no cover
+        from pricing_scrapers import provider_pricing_strategies  # type: ignore
+    return provider_pricing_strategies(ptype)
+
+
+def default_pricing(ptype: str) -> str:
+    """某来源类型的默认定价策略 value。"""
+    if ptype == "openrouter":
+        return OR_DEFAULT_STRATEGY
+    try:
+        from .pricing_scrapers import provider_default_strategy
+    except ImportError:  # pragma: no cover
+        from pricing_scrapers import provider_default_strategy  # type: ignore
+    return provider_default_strategy(ptype)
+
+
+def pricing_label(ptype: str, value: str | None) -> str:
+    """策略 value → 中文 label（用于模型表展示）。"""
+    for v, label in pricing_strategies_for(ptype):
+        if v == value:
+            return label
+    return value or "—"
+
 
 
 def get_config_dir() -> Path:
@@ -33,7 +74,7 @@ def get_default_config_path() -> Path:
 
 
 def get_default_config() -> dict:
-    """返回完美的默认初始配置模板"""
+    """返回内置「推荐」模板（对齐用户线上 config.yaml 的四组）。"""
     return {
         "exchange_rate": {
             "usd_to_cny": 6.71
@@ -51,13 +92,10 @@ def get_default_config() -> dict:
         ],
         "groups": [
             {
-                "display_name": "DeepSeek V4 Flash",
+                "display_name": "DeepSeek V4.1 Flash",
                 "models": [
-                    {"name": "DeepSeek 官方", "id": "deepseek-flash", "type": "deepseek"},
-                    {"name": "V4F 0423", "id": "deepseek/deepseek-v4-flash", "type": "openrouter", "pricing": "expected"},
-                    {"name": "V4F 0731", "id": "deepseek/deepseek-v4-flash-0731", "type": "openrouter", "pricing": "expected"},
-                    {"name": "V4F Latest", "id": "~deepseek/deepseek-v4-flash-latest", "type": "openrouter", "pricing": "expected"},
-                    {"name": "V4F Vision Exp", "id": "deepseek/deepseek-v4-flash-vision-exp", "type": "openrouter", "pricing": "expected"}
+                    {"name": "DeepSeek 官方", "id": "deepseek-flash", "type": "deepseek", "pricing": "auto"},
+                    {"name": "OpenRouter", "id": "deepseek/deepseek-4.1-flash", "type": "openrouter", "pricing": "expected"},
                 ]
             },
             {
@@ -93,7 +131,11 @@ def config_exists(config_path: str | Path | None = None) -> bool:
 
 
 def get_blank_config() -> dict:
-    """返回一个可编辑的空白骨架配置（向导「从零开始」用）"""
+    """空白骨架：仅汇率 + 默认场景，对比组留空。
+
+    向导选「空白」后，主程序会自动打开设置页并给出去噪引导，
+    由用户在「对比组」里亲手添加第一个组，故此处 groups 为空。
+    """
     return {
         "exchange_rate": {"usd_to_cny": 6.71},
         "scenarios": [
@@ -102,16 +144,9 @@ def get_blank_config() -> dict:
                 "tokens": {"cache_read": 0.85, "cache_write": 0.10, "input": 0.04, "output": 0.01},
             }
         ],
-        "groups": [
-            {
-                "display_name": "My Model",
-                "models": [
-                    {"name": "官方", "id": "", "type": "deepseek"},
-                    {"name": "OpenRouter", "id": "", "type": "openrouter", "pricing": "expected"},
-                ],
-            }
-        ],
+        "groups": [],
     }
+
 
 
 def ensure_config_exists(config_path: str | Path | None = None) -> Path:
