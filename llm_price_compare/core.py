@@ -14,11 +14,11 @@ core.py — 模型价格比较的数据层
 from __future__ import annotations
 
 import time
+from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Callable
 
 import requests
 
@@ -338,7 +338,7 @@ def calc_expected_with_detail(
     expected: dict[str, float] = {}
     for price_key in API_PRICE_FIELDS:
         weighted_sum = 0.0
-        for ep, weight in zip(healthy, weights):
+        for ep, weight in zip(healthy, weights, strict=True):
             effective = endpoint_expected_price(ep, price_key)
             if effective is None:
                 continue
@@ -349,7 +349,7 @@ def calc_expected_with_detail(
         return None, []
 
     rows: list[EndpointRow] = []
-    for ep, weight in zip(healthy, weights):
+    for ep, weight in zip(healthy, weights, strict=True):
         per_price = {}
         for key in API_PRICE_FIELDS:
             effective = endpoint_expected_price(ep, key)
@@ -423,7 +423,7 @@ def fetch_endpoints_many(
     with ThreadPoolExecutor(max_workers=min(max_workers, len(model_ids))) as pool:
         futures = [pool.submit(fetch_model_endpoints, mid) for mid in model_ids]
         results: dict[str, dict | None] = {}
-        for mid, future in zip(model_ids, futures):
+        for mid, future in zip(model_ids, futures, strict=True):
             data = future.result()
             results[mid] = data
             log(f"   {'✅' if data else '❌'} {mid}")

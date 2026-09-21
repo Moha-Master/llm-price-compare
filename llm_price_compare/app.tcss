@@ -1,9 +1,81 @@
-/* app.tcss — LLM Price Compare TUI 样式 */
+/* app.tcss — LLM Price Compare TUI 样式
+ *
+ * 遵循统一规范（见 AGENTS.md 第一部分）：全局单行按钮、模态三段式、表格 focus 圆角、
+ * 底部状态栏语义色。与三款 controller 的差异：本项目为「多维比价看板」，表格纵向堆叠
+ * （`.tbl` 高度 auto），滚动交给 `.pane`（VerticalScroll），而非 controller 的单表 1fr 滚动。
+ */
 
 Screen {
     background: $surface;
 }
 
+/* ---------- 按钮：全局单行（替代 compact，无边框；四项目一致） ---------- */
+Button {
+    height: 1;
+    border: none;
+    min-width: 0;
+    padding: 0 1;
+}
+
+Button:focus {
+    border: none;
+    text-style: bold reverse;
+}
+
+Button:disabled {
+    text-opacity: 60%;
+}
+
+/* ---------- 模态三段式：标题栏 / 内容 / 按钮栏 ---------- */
+.modal-box {
+    layout: vertical;
+    height: auto;
+    max-height: 90%;
+    border: round $primary;
+    background: $surface;
+    padding: 0;
+}
+
+.modal-title {
+    height: auto;
+    padding: 0 2;
+    border-bottom: hkey $secondary;
+    content-align: left middle;
+}
+
+.modal-main {
+    height: auto;
+    padding: 1 2;
+}
+
+.btn-row {
+    height: auto;
+    padding: 0 2;
+    border-top: hkey $secondary;
+    align-horizontal: right;
+    dock: bottom;
+}
+
+.btn-row Button {
+    margin-left: 2;
+}
+
+/* ---------- 页面公共 ---------- */
+.page-hint {
+    height: 1;
+    padding: 0 1;
+    color: $text-muted;
+}
+
+/* ---------- 信息面板小容器 ---------- */
+.panel {
+    height: auto;
+    margin: 1 1 0 1;
+    padding: 1 2;
+    border: round $secondary;
+}
+
+/* ---------- 看板主体：多 tab，纵向堆叠多张表 ---------- */
 TabbedContent {
     height: 1fr;
     background: $surface;
@@ -13,7 +85,6 @@ TabPane {
     padding: 0 1;
 }
 
-/* 每个页面本身是可滚动容器，保证表格超屏时可以滚动 */
 .pane {
     height: 1fr;
     padding-bottom: 1;
@@ -25,7 +96,7 @@ TabPane {
     padding-top: 3;
 }
 
-/* 区块标题 */
+/* ---------- 区块标题 / 说明（看板纵向堆叠用） ---------- */
 Section {
     height: auto;
     padding: 0 1;
@@ -33,27 +104,27 @@ Section {
     background: $panel;
     color: $text;
     text-style: bold;
-    border: round $primary;
+    border: round $secondary;
 }
 
-/* 说明文字 */
 Hint {
     height: auto;
     padding: 0 1;
-    color: $text;
-    text-style: dim;
+    color: $text-muted;
 }
 
-/* 数据表：高度随内容自适应，交给 .pane 负责滚动 */
+/* ---------- 数据表：纵向堆叠，高度随内容，滚动交给 .pane ---------- */
 .tbl {
     height: auto;
     margin-top: 1;
     border: round $secondary;
+    overflow-x: hidden;
 }
 
-/* 聚焦的表格用醒目边框标出，解决「多张纵向堆叠表时看不出光标作用在哪张」 */
+/* 聚焦表格用醒目圆角边框标出（解决「多张纵向堆叠表时看不出光标作用在哪张」），
+   并保持圆角与 .panel/.Section 风格一致。 */
 .tbl:focus {
-    border: tall $primary;
+    border: round $primary;
 }
 
 .select-row {
@@ -65,7 +136,7 @@ Select.version-select {
     width: 34;
 }
 
-/* 底部状态栏 */
+/* ---------- 底部状态栏 ---------- */
 #status {
     height: 1;
     dock: bottom;
@@ -74,11 +145,7 @@ Select.version-select {
     color: $text;
 }
 
-/* 状态栏文字色为「UI 状态色」，随主题语义变量变化（区别于表格里的涨跌数据编码色） */
+/* 状态栏文字色为「UI 状态色」，随主题语义变量变化（区别于表格里的涨跌数据编码色）。 */
 #status.ok { color: $success; }
 #status.warn { color: $warning; }
 #status.err { color: $error; }
-
-Footer {
-    background: $panel;
-}

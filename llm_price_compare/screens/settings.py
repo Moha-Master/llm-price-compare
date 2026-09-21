@@ -1,38 +1,23 @@
+"""设置页（全屏 PageScreen）：汇率 / 场景 / 对比组与模型的可视化增删改。
+
+统一规范落地：
+- 重命名 → widgets.InputModal；模型新增 / 编辑 → widgets.FormModal 子类（定价策略随来源动态刷新）；
+  删除组 / 模型 → widgets.ConfirmModal（危险项默认不回车放行）。
+- 列表用 widgets.ClickTable：单击 = 选择（去掉旧版「双击编辑」，改由按钮 / 回车执行）。
+- 未保存修改时返回（Esc / ◀ 返回 / 放弃）会先确认。
 """
-settings_screen.py — 程序内设置页
-
-提供汇率、场景、对比组与模型的可视化增删改；保存后写回 config.yaml。
-
-设计要点：
-- 组列表 / 模型列表用 DataTable。Textual 8.2.8 的 Click 事件不带 button_count，
-  且 RowSelected 仅在「重复点击同一已选中单元格」时触发，故用 ClickTable 子类
-  以「时间窗 + 同键」区分单击 / 双击，派生一等公民事件 RowClicked / RowDoubleClicked。
-- 定价策略不再硬编码：下拉内容由 cfg.pricing_strategies_for(type) 动态生成
-  （官方来源由各抓取器标准暴露，如 DeepSeek 峰/谷/自动；openrouter 为最低/期望）。
-"""
-
 from __future__ import annotations
 
 import copy
-import time
 from pathlib import Path
 
 from textual import on
 from textual.containers import Horizontal, Vertical, VerticalScroll
-from textual.message import Message
-from textual.screen import ModalScreen, Screen
-from textual.widgets import (
-    Button,
-    DataTable,
-    Input,
-    Label,
-    Select,
-    Static,
-    TabbedContent,
-    TabPane,
-)
+from textual.widgets import Button, DataTable, Input, Label, Select, Static, TabbedContent, TabPane
 
-from . import config as cfg
+from .. import config as cfg
+from ..ui import PageScreen
+from ..widgets import ClickTable, ConfirmModal, FormField, FormModal, InputModal
 
 TOKEN_ROWS: list[tuple[str, str]] = [
     ("cache_read", "缓存读"),
@@ -61,223 +46,85 @@ def _pct_to_frac(raw: str) -> float:
         return 0.0
 
 
-class ClickTable(DataTable):
-    """带单击 / 双击区分的 DataTable（基于点击时间窗 + 同行判定）。"""
-
-    DOUBLE_DELAY = 0.5
-
-    class RowClicked(Message):
-        def __init__(self, control: ClickTable, row_index: int) -> None:
-            self.row_index = row_index
-            self._row_control = control
-            super().__init__()
-
-        @property
-        def control(self) -> ClickTable:
-            return self._row_control
-
-    class RowDoubleClicked(Message):
-        def __init__(self, control: ClickTable, row_index: int) -> None:
-            self.row_index = row_index
-            self._row_control = control
-            super().__init__()
-
-        @property
-        def control(self) -> ClickTable:
-            return self._row_control
-
-    def __init__(self, **kwargs) -> None:
-        super().__init__(**kwargs)
-        self._last_row: int | None = None
-        self._last_t = 0.0
-
-    async def _on_click(self, event) -> None:
-        row = event.style.meta.get("row")
-        await super()._on_click(event)  # 让基线移动光标 / 处理表头点击
-        if row is None or row < 0:
-            return
-        now = time.monotonic()
-        if self._last_row == row and now - self._last_t < self.DOUBLE_DELAY:
-            self._last_row = None
-            self.post_message(self.RowDoubleClicked(self, row))
-        else:
-            self._last_row = row
-            self._last_t = now
-            self.post_message(self.RowClicked(self, row))
-
-
-class RenameScreen(ModalScreen["str | None"]):
-    """单行文本重命名弹窗；返回新名字或 None（取消）。"""
-
-    DEFAULT_CSS = """
-    RenameScreen { align: center middle; }
-    RenameScreen > Vertical {
-        width: 50; max-width: 90%; height: auto; padding: 1 2;
-        border: round $primary; background: $surface;
-    }
-    RenameScreen Input { width: 100%; margin: 1 0; }
-    RenameScreen .rn-actions { align-horizontal: right; }
-    RenameScreen .rn-actions Button { margin-left: 2; }
-    """
-
-    def __init__(self, title: str, current: str = "", placeholder: str = "") -> None:
-        super().__init__()
-        self._title = title
-        self._current = current
-        self._placeholder = placeholder
-
-    def compose(self):
-        with Vertical():
-            yield Label(self._title)
-            yield Input(placeholder=self._placeholder, value=self._current, id="rn-input")
-            with Horizontal(classes="rn-actions"):
-                yield Button("取消", id="rn-cancel", variant="default")
-                yield Button("确定", id="rn-ok", variant="primary")
-
-    def on_mount(self) -> None:
-        box = self.query_one("#rn-input", Input)
-        box.focus()
-        box.select_all()
-
-    def _submit(self) -> None:
-        name = self.query_one("#rn-input", Input).value.strip()
-        self.dismiss(name if name else None)
-
-    @on(Button.Pressed, "#rn-ok")
-    def _ok(self) -> None:
-        self._submit()
-
-    @on(Button.Pressed, "#rn-cancel")
-    def _cancel(self) -> None:
-        self.dismiss(None)
-
-    @on(Input.Submitted, "#rn-input")
-    def _entered(self) -> None:
-        self._submit()
-
-
-class ModelEditScreen(ModalScreen["dict | None"]):
-    """新增 / 编辑单个模型条目；定价策略下拉随来源类型动态生成。"""
-
-    DEFAULT_CSS = """
-    ModelEditScreen { align: center middle; }
-    ModelEditScreen > Vertical {
-        width: 64; max-height: 90%; padding: 1 2;
-        border: round $primary; background: $surface;
-    }
-    ModelEditScreen Input, ModelEditScreen Select { width: 100%; margin-bottom: 1; }
-    ModelEditScreen .edit-actions { align-horizontal: right; }
-    ModelEditScreen .edit-actions Button { margin-left: 2; }
-    """
+class ModelFormModal(FormModal):
+    """新增 / 编辑单个模型条目；定价策略下拉随来源类型动态刷新。"""
 
     def __init__(self, model: dict | None = None) -> None:
-        super().__init__()
-        self._model = dict(model) if model else {}
-
-    def _pricing_options(self, mtype: str) -> list[tuple[str, str]]:
-        """Select 需要 (label, value) 顺序；这里从 (value, label) 翻转。"""
-        return [(label, value) for value, label in cfg.pricing_strategies_for(mtype)]
-
-    def compose(self):
-        m = self._model
+        m = dict(model) if model else {}
         mtype = m.get("type", "openrouter")
         values = [v for v, _ in cfg.pricing_strategies_for(mtype)]
         cur_pricing = m.get("pricing") or cfg.default_pricing(mtype)
         if cur_pricing not in values:
             cur_pricing = values[0] if values else cur_pricing
-        with Vertical():
-            yield Label("编辑模型" if m else "添加模型")
-            yield Input(placeholder="显示名称", value=m.get("name", ""), id="me-name")
-            yield Input(
-                placeholder="模型 ID（官方模型填官方 id，OR 填 provider/name）",
-                value=m.get("id", ""),
-                id="me-id",
-            )
-            yield Label("定价来源 type")
-            yield Select(
-                [(t, t) for t in cfg.PROVIDER_TYPES],
-                value=mtype,
-                allow_blank=False,
-                id="me-type",
-            )
-            yield Label("定价策略 pricing")
-            yield Select(
-                self._pricing_options(mtype),
+        fields = [
+            FormField("name", "显示名称", value=m.get("name", ""), placeholder="如 DeepSeek 官方"),
+            FormField("id", "模型 ID", value=m.get("id", ""), placeholder="官方 id 或 provider/name"),
+            FormField("type", "定价来源", kind="choice", value=mtype, options=[(t, t) for t in cfg.PROVIDER_TYPES]),
+            FormField(
+                "pricing",
+                "定价策略",
+                kind="choice",
                 value=cur_pricing,
-                allow_blank=False,
-                id="me-pricing",
-            )
-            with Horizontal(classes="edit-actions"):
-                yield Button("取消", id="me-cancel", variant="default")
-                yield Button("确定", id="me-ok", variant="primary")
+                options=[(label, value) for value, label in cfg.pricing_strategies_for(mtype)],
+            ),
+        ]
+        super().__init__("编辑模型" if m else "添加模型", fields, ok_label="确定")
 
-    @on(Select.Changed, "#me-type")
+    @on(Select.Changed, "#se-type")
     def _type_changed(self) -> None:
-        newt = self.query_one("#me-type", Select).value
+        newt = self.query_one("#se-type", Select).value
         if not newt:
             return
         opts = cfg.pricing_strategies_for(str(newt))
-        values = [v for v, _ in opts]
-        sel = self.query_one("#me-pricing", Select)
+        sel = self.query_one("#se-pricing", Select)
         sel.set_options([(label, value) for value, label in opts])
+        vals = [v for v, _ in opts]
         d = cfg.default_pricing(str(newt))
-        sel.value = d if d in values else (values[0] if values else Select.NULL)
-
-    @on(Button.Pressed, "#me-cancel")
-    def _cancel(self) -> None:
-        self.dismiss(None)
-
-    @on(Button.Pressed, "#me-ok")
-    def _ok(self) -> None:
-        name = self.query_one("#me-name", Input).value.strip()
-        mid = self.query_one("#me-id", Input).value.strip()
-        mtype = self.query_one("#me-type", Select).value or "openrouter"
-        pricing = self.query_one("#me-pricing", Select).value
-        model: dict = {"name": name or mid or str(mtype), "id": mid, "type": str(mtype)}
-        # 定价策略对所有来源都持久化（官方来源如 DeepSeek 会取 peak/valley/auto）
-        if pricing and pricing is not Select.NULL:
-            model["pricing"] = str(pricing)
-        self.dismiss(model)
+        sel.value = d if d in vals else (vals[0] if vals else Select.NULL)
 
 
-class SettingsScreen(Screen):
+class SettingsScreen(PageScreen):
     """保存后 dismiss(True)，主界面据此热刷新。guide=True 为首次空白引导。"""
 
+    TITLE = "设置"
+    SUBTITLE = ""
+    HINT = "↑↓ 选择 · 回车 编辑 · Tab 切焦点 · Ctrl+S 保存 · Esc/Ctrl+C 放弃返回"
+
     DEFAULT_CSS = """
-    SettingsScreen { background: $surface; }
-    SettingsScreen #settings-title { padding: 1 2; text-style: bold; }
     SettingsScreen #settings-body { height: 1fr; }
+    SettingsScreen #group-body { height: 1fr; }
     SettingsScreen .field-label { margin-top: 1; padding-top: 1; }
-    SettingsScreen .tab-hint { padding: 1 1; color: $text; }
+    SettingsScreen .tab-hint { padding: 1 0; color: $text-muted; }
     SettingsScreen #rate { width: 24; }
 
-    SettingsScreen .scenario-row { margin: 0 0 1 0; padding: 1 1; border: round $secondary; height: auto; align-vertical: middle; }
+    SettingsScreen .scenario-row { margin-bottom: 1; height: auto; align-vertical: middle; }
     SettingsScreen .scenario-row Input.sc-name { width: 18; margin-left: 0; }
     SettingsScreen .scenario-row Label { margin-left: 1; }
     SettingsScreen .scenario-row Input.sc-pct { width: 8; margin-left: 0; }
     SettingsScreen .scenario-row Button.sc-del { margin-left: 1; }
 
     SettingsScreen .group-side { width: 34; padding-right: 1; }
-    SettingsScreen #group-table { height: 1fr; }
-    SettingsScreen .group-side Button { width: 100%; margin-top: 1; }
-    SettingsScreen .mini-hint { color: $secondary; padding: 1 0 0 0; }
+    SettingsScreen .group-side #group-table { height: 1fr; }
+    SettingsScreen .grp-btns { height: auto; margin-top: 1; }
+    SettingsScreen .grp-btns Button { margin-right: 1; }
+    SettingsScreen .mini-hint { color: $text-muted; padding-top: 1; }
 
-    SettingsScreen #group-editor { width: 1fr; padding: 0 0 0 2; }
+    SettingsScreen #group-editor { width: 1fr; padding-left: 2; }
     SettingsScreen #group-guide { border: round $success; padding: 1 2; margin-bottom: 1; background: $panel; }
-    SettingsScreen #models-table { height: 1fr; margin-top: 1; }
-    SettingsScreen .row-actions Button { margin-left: 1; }
+    SettingsScreen #models-table { height: auto; margin-top: 1; }
+    SettingsScreen .row-actions { height: auto; margin-top: 1; }
+    SettingsScreen .row-actions Button { margin-right: 1; }
 
-    SettingsScreen #settings-bar { dock: bottom; height: 3; padding: 0 2; align-horizontal: right; background: $panel; }
-    SettingsScreen #settings-bar Button { margin-left: 2; }
+    SettingsScreen .settings-actions { height: auto; margin-top: 1; align-horizontal: right; }
+    SettingsScreen .settings-actions Button { margin-left: 2; }
     """
-
-    BINDINGS = [("escape", "abandon", "放弃修改")]
 
     def __init__(
         self, config: dict, target_path: str | Path | None = None, *, guide: bool = False
     ) -> None:
         super().__init__()
         self._config = copy.deepcopy(config)
+        self._config_orig = copy.deepcopy(config)
         self._target = Path(target_path) if target_path else cfg.get_default_config_path()
         self._group_index = 0
         self._edit_index = -1
@@ -286,15 +133,14 @@ class SettingsScreen(Screen):
 
     # ---------------- 结构 ----------------
 
-    def compose(self):
-        yield Static("⚙️  设置", id="settings-title")
+    def compose_page(self):
         with TabbedContent(id="settings-body"):
             with TabPane("常规", id="tab-general"):
-                with VerticalScroll():
+                with VerticalScroll(classes="pane"):
                     yield Label("美元 → 人民币汇率", classes="field-label")
                     yield Input(id="rate")
             with TabPane("场景", id="tab-scenario"):
-                with VerticalScroll(id="scenario-scroll"):
+                with VerticalScroll(classes="pane"):
                     yield Static(
                         "各 token 类型占比（百分比），四项相加应为 100%。用于场景成本估算。",
                         classes="tab-hint",
@@ -302,32 +148,35 @@ class SettingsScreen(Screen):
                     yield VerticalScroll(id="scenario-list")
                     yield Button("＋ 添加场景", id="add-scenario", variant="default")
             with TabPane("对比组", id="tab-group"):
-                with Horizontal():
+                with Horizontal(id="group-body"):
                     with Vertical(classes="group-side"):
                         yield Label("对比组")
-                        yield ClickTable(id="group-table")
-                        yield Static("单击切换 · 双击重命名", classes="mini-hint")
-                        yield Button("＋ 新建组", id="add-group")
-                        yield Button("🗑 删除组", id="del-group", variant="error")
-                    with VerticalScroll(id="group-editor"):
+                        yield ClickTable(id="group-table", cursor_type="row", classes="")
+                        with Horizontal(classes="grp-btns"):
+                            yield Button("＋ 新建", id="add-group")
+                            yield Button("✎ 重命名", id="rename-group")
+                            yield Button("🗑 删除", id="del-group", variant="error")
+                        yield Static("单击切换 · 回车 / 重命名按钮改名", classes="mini-hint")
+                    with VerticalScroll(id="group-editor", classes="pane"):
                         if self._guide:
                             yield Static(
-                                "👋 欢迎！还没有对比组。点左侧「＋ 新建组」创建第一个对比组，\n"
+                                "👋 欢迎！还没有对比组。点左侧「＋ 新建」创建第一个对比组，\n"
                                 "再在右侧「添加模型」加入要互相比较的模型（同一模型的不同来源，\n"
                                 "如官方直连 + OpenRouter）。配好后点右下角「保存」即可自动抓取价格。",
                                 id="group-guide",
                             )
-                        yield Label("模型条目（单击选择，双击编辑）", classes="field-label")
-                        yield ClickTable(id="models-table")
+                        yield Label("模型条目（单击选择，回车 / 编辑按钮修改）", classes="field-label")
+                        yield ClickTable(id="models-table", cursor_type="row", classes="")
                         with Horizontal(classes="row-actions"):
                             yield Button("＋ 添加模型", id="add-model")
                             yield Button("✎ 编辑模型", id="edit-model")
                             yield Button("🗑 删除模型", id="del-model", variant="error")
-        with Horizontal(id="settings-bar"):
+        with Horizontal(classes="settings-actions"):
             yield Button("放弃", id="btn-cancel", variant="default")
-            yield Button("💾 保存", id="btn-save", variant="success")
+            yield Button("💾 保存", id="btn-save", variant="primary")
 
     async def on_mount(self) -> None:
+        self.set_subtitle(str(self._target))
         rate = self._config.get("exchange_rate", {}).get("usd_to_cny", 6.71)
         self.query_one("#rate", Input).value = str(rate)
 
@@ -354,11 +203,10 @@ class SettingsScreen(Screen):
         rows: list[Horizontal] = []
         for idx, sc in enumerate(self._config.get("scenarios", [])):
             tokens = sc.get("tokens", {})
-            children: list = [Input(placeholder="场景名", value=sc.get("name", ""), classes="sc-name")]
+            children: list = [Input(placeholder="场景名", value=sc.get("name", ""), classes="sc-name", compact=True)]
             for key, label in TOKEN_ROWS:
                 children.append(Label(label))
-                children.append(Input(value=_frac_to_pct(tokens.get(key, 0)), classes=f"sc-pct sc-{key}"))
-            # 用 widget 的一等公民 id 携带行号（而非往实例挂私有属性），删除时反解。
+                children.append(Input(value=_frac_to_pct(tokens.get(key, 0)), classes=f"sc-pct sc-{key}", compact=True))
             children.append(Button("🗑", classes="sc-del", id=f"sc-del-{idx}", variant="error"))
             rows.append(Horizontal(*children, classes="scenario-row"))
         if rows:
@@ -430,24 +278,19 @@ class SettingsScreen(Screen):
             strategy = cfg.pricing_label(mtype, m.get("pricing") or cfg.default_pricing(mtype))
             table.add_row(m.get("name", ""), m.get("id", ""), mtype, strategy)
 
-    @on(ClickTable.RowClicked, "#group-table")
-    def _group_single(self, event: ClickTable.RowClicked) -> None:
+    @on(DataTable.RowSelected, "#group-table")
+    def _group_selected(self, event: DataTable.RowSelected) -> None:
         self._group_index = event.row_index
         self._load_group()
 
-    @on(ClickTable.RowDoubleClicked, "#group-table")
-    def _group_double(self, event: ClickTable.RowDoubleClicked) -> None:
-        self._group_index = event.row_index
-        self._load_group()
-        self._rename_group(event.row_index)
-
-    def _rename_group(self, idx: int) -> None:
+    @on(Button.Pressed, "#rename-group")
+    def _rename_group(self) -> None:
         groups = self._config.get("groups", [])
-        if not 0 <= idx < len(groups):
+        if not 0 <= self._group_index < len(groups):
             return
-        self._rename_target = idx
-        current = groups[idx].get("display_name", "")
-        self.app.push_screen(RenameScreen("重命名对比组", current), self._on_rename)
+        self._rename_target = self._group_index
+        current = groups[self._group_index].get("display_name", "")
+        self.app.push_screen(InputModal("新的组名称", title="重命名对比组", value=current), self._on_rename)
 
     def _on_rename(self, name: str | None) -> None:
         if name is None:
@@ -469,6 +312,23 @@ class SettingsScreen(Screen):
         groups = self._config.get("groups", [])
         if not groups:
             return
+        name = groups[self._group_index].get("display_name", "")
+        self.app.push_screen(
+            ConfirmModal(
+                f"删除对比组「{name}」及其全部模型条目？（点「保存」后才会写盘）",
+                title="删除对比组",
+                yes="删除",
+                default_yes=False,
+            ),
+            self._confirm_del_group,
+        )
+
+    def _confirm_del_group(self, ok: bool) -> None:
+        if not ok:
+            return
+        groups = self._config.get("groups", [])
+        if not groups:
+            return
         groups.pop(self._group_index)
         self._group_index = max(0, self._group_index - 1)
         self._refresh_group_table()
@@ -476,20 +336,20 @@ class SettingsScreen(Screen):
 
     # ---------------- 模型 ----------------
 
+    @on(DataTable.RowSelected, "#models-table")
+    def _model_selected(self, event: DataTable.RowSelected) -> None:
+        self._edit_index = event.row_index
+
     @on(Button.Pressed, "#add-model")
     def _add_model(self) -> None:
         if self._current_group() is None:
             return
         self._edit_index = -1
-        self.app.push_screen(ModelEditScreen(), self._on_model_result)
+        self.app.push_screen(ModelFormModal(), self._on_model_result)
 
     @on(Button.Pressed, "#edit-model")
     def _edit_model(self) -> None:
         self._open_model_edit(self.query_one("#models-table", DataTable).cursor_row)
-
-    @on(ClickTable.RowDoubleClicked, "#models-table")
-    def _model_double(self, event: ClickTable.RowDoubleClicked) -> None:
-        self._open_model_edit(event.row_index)
 
     def _open_model_edit(self, idx: int | None) -> None:
         group = self._current_group()
@@ -498,14 +358,17 @@ class SettingsScreen(Screen):
         if idx is None or idx < 0 or idx >= len(group["models"]):
             return
         self._edit_index = idx
-        self.app.push_screen(ModelEditScreen(group["models"][idx]), self._on_model_result)
+        self.app.push_screen(ModelFormModal(group["models"][idx]), self._on_model_result)
 
-    def _on_model_result(self, model: dict | None) -> None:
-        if model is None:
+    def _on_model_result(self, data: dict | None) -> None:
+        if data is None:
             return
         group = self._current_group()
         if group is None:
             return
+        model = {"name": data["name"] or data["id"] or data["type"], "id": data["id"], "type": data["type"]}
+        if data.get("pricing"):
+            model["pricing"] = data["pricing"]
         models = group.setdefault("models", [])
         if self._edit_index is not None and 0 <= self._edit_index < len(models):
             models[self._edit_index] = model
@@ -522,10 +385,42 @@ class SettingsScreen(Screen):
         idx = table.cursor_row
         if idx is None or idx < 0 or idx >= len(group["models"]):
             return
-        group["models"].pop(idx)
+        self.app.push_screen(
+            ConfirmModal(
+                f"删除模型条目「{group['models'][idx].get('name', '')}」？（点「保存」后才会写盘）",
+                title="删除模型",
+                yes="删除",
+                default_yes=False,
+            ),
+            lambda ok: self._confirm_del_model(idx) if ok else None,
+        )
+
+    def _confirm_del_model(self, idx: int) -> None:
+        group = self._current_group()
+        if group is None or not group.get("models"):
+            return
+        if 0 <= idx < len(group["models"]):
+            group["models"].pop(idx)
         self._load_group()
 
     # ---------------- 保存 / 放弃 ----------------
+
+    def _working(self) -> dict:
+        probe = copy.deepcopy(self._config)
+        raw = self.query_one("#rate", Input).value.strip()
+        try:
+            probe.setdefault("exchange_rate", {})["usd_to_cny"] = float(raw)
+        except ValueError:
+            pass
+        self._commit_scenarios()
+        probe["scenarios"] = copy.deepcopy(self._config["scenarios"])
+        return probe
+
+    def _is_dirty(self) -> bool:
+        try:
+            return self._working() != self._config_orig
+        except Exception:  # noqa: BLE001
+            return True
 
     @on(Button.Pressed, "#btn-save")
     def _save(self) -> None:
@@ -540,7 +435,21 @@ class SettingsScreen(Screen):
 
     @on(Button.Pressed, "#btn-cancel")
     def _cancel(self) -> None:
-        self.dismiss(False)
+        self._try_abandon()
 
-    def action_abandon(self) -> None:
-        self.dismiss(False)
+    def action_page_back(self) -> None:
+        self._try_abandon()
+
+    def _try_abandon(self) -> None:
+        if self._is_dirty():
+            self.app.push_screen(
+                ConfirmModal(
+                    "有未保存的修改，放弃并返回？",
+                    title="放弃修改",
+                    yes="放弃",
+                    default_yes=False,
+                ),
+                lambda ok: self.dismiss(False) if ok else None,
+            )
+        else:
+            self.dismiss(False)

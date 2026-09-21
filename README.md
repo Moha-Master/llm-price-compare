@@ -35,18 +35,21 @@ python -m venv venv
 
 ```bash
 llm-price                       # 自动定位配置（见下）
-llm-price path/to/config.yaml   # 显式指定配置
+llm-price path/to/config.yaml   # 显式指定配置文件
+llm-price -D /path/dir          # 指定配置目录（写环境变量 LLM_PRICE_COMPARE_CONFIG_DIR）
+llm-price --version
 ```
 
-**首次运行**若目标配置文件不存在，会先进入**配置向导**：选择「推荐内置对比组」或「空白」，设置汇率后写盘。选「空白」时会接着进入设置页并给出去噪引导，带你亲手添加第一个对比组。之后每次启动直接进入界面。
+**首次运行**若目标配置文件不存在，会先进入**配置向导**（三段式模态）：选择「推荐内置对比组」或「空白」，设置汇率后写盘。选「空白」时会接着进入设置页并给出去噪引导，带你亲手添加第一个对比组。之后每次启动直接进入看板界面。
 
-配置查找顺序：命令行参数 > 当前目录 `config.yaml` > 用户配置 `~/.config/llm-price-compare/config.yaml`。可用环境变量 `LLM_PRICE_COMPARE_CONFIG_DIR` 覆盖配置目录。
+配置查找顺序：位置参数 `config` > 当前目录 `config.yaml` > 用户配置 `~/.config/llm-price-compare/config.yaml`。配置目录优先级：`-D/--dir` > 环境变量 `LLM_PRICE_COMPARE_CONFIG_DIR` > `~/.config/llm-price-compare`。
 
-界面里随时按 `ctrl+s` 打开**设置页**（Tabbed：常规 / 场景 / 对比组），可视化增删改汇率、场景、对比组与模型条目；保存后自动重新抓取并热刷新，无需退出或手改文件。设置页交互：
+界面里随时按 `Ctrl+S` 打开**设置页**（Tabbed：常规 / 场景 / 对比组），可视化增删改汇率、场景、对比组与模型条目；保存后自动重新抓取并热刷新，无需退出或手改文件。设置页遵循统一交互：
 
-- **对比组**：左侧列表**单击切换**当前组、**双击重命名**；右侧模型条目**双击直接进入编辑**（也可用底部「编辑」按钮）。
+- **对比组**：左侧列表**单击切换**当前组、`[✎ 重命名]` 按钮（InputModal）改名；右侧模型条目**单击选择** + `[✎ 编辑]` 按钮（或 `Enter`）进入编辑。
+- **删除**：`[🗑 删除]`（组 / 模型）会弹 `ConfirmModal` 二次确认（危险项默认不回车放行）。**未保存**时 `Esc` / `[放弃]` 返回会先弹确认。
 - **场景**：每个 token 占比带**可见字段名**并以**百分比**显示（如 `85%`，输入 `85` 或 `85%` 均可，存储仍是 `0.85`）。
-- **模型**：定价策略下拉**随来源类型动态生成**，不再只对 OpenRouter 生效——选 DeepSeek 会给出「峰价 / 谷价 / 自动」，选其他官方来源给出其自身支持的策略，选 OpenRouter 为「最低 / 期望」。
+- **模型**：定价策略下拉**随来源类型动态生成**（FormModal 内切换来源即刷新）——选 DeepSeek 给出「峰价 / 谷价 / 自动」，选其他官方来源给出其自身策略，选 OpenRouter 为「最低 / 期望」。
 
 
 启动后立即开始拉取数据并计算，无需任何操作。
@@ -54,7 +57,7 @@ llm-price path/to/config.yaml   # 显式指定配置
 界面大概长这样（真实数据，↑↓ 在原界面中带红绿配色）：
 
 ```text
-LLM Price Compare — 4 个模型 · 7 个 OR 版本 · 汇率 6.71 · 20:13:42
+◀ 退出  LLM 价格对比  4 个模型 · 7 个 OR 版本 · 汇率 6.71 · 20:13:42            [🔄 刷新] [⚙️ 设置]
 📊 总览 │ DeepSeek V4 Flash │ Xiaomi MiMo V2.5 │ Zhipu GLM 5.3 Flash │ Qwen3.8 Flash
 
 ╭─ 📊 基础价横向对比（输入 + 输出 直算口径）───────────────────────────────────────────╮
@@ -79,15 +82,18 @@ LLM Price Compare — 4 个模型 · 7 个 OR 版本 · 汇率 6.71 · 20:13:42
 
 | 按键 | 作用 |
 | --- | --- |
-| `r` | 重新拉取并计算 |
-| `ctrl+s` | 打开设置页（增删改汇率 / 场景 / 对比组 / 模型） |
+| `Ctrl+R` | 重新拉取并计算 |
+| `Ctrl+S` | 打开设置页（增删改汇率 / 场景 / 对比组 / 模型） |
 | `[` / `]` | 上一个 / 下一个 tab |
-| `1` … `9` | 跳到第 N 个 tab |
+| `1` … `9` | 跳到第 N 个 tab（总览为第 1 个） |
 | `g` | 回到总览 |
 | `↑ ↓ ← →` | 表格内移动光标（cell 光标，可左右移到目标列） |
 | `s` | 按当前光标列排序（等价于点击表头，再按反向） |
-| 点击表头 | 按该列排序，再点一次反向 |
-| `q` | 退出 |
+| 单击表头 | 按该列排序，再点一次反向 |
+| `Esc` / `Ctrl+C` | 层级回退：关闭浮层 / 模态 / 返回；**看板根屏为退出**，设置页为放弃返回（有改动先确认） |
+| `Ctrl+Q` | **任意界面**直接退出程序 |
+
+- 遵循四项目统一键位：**无 `q`**（退出走 `Ctrl+Q` / `Esc`）、**无 `r`**（刷新走 `Ctrl+R`）。看板根屏 `Esc` 等同退出。
 
 价格单元格相对**官方价**着色：绿 = 更便宜，红 = 更贵，并附 `↑/↓` 箭头（色盲友好，不依赖单色）。名称后的 `*` 表示该数字是期望价。排序有键盘路径（`←→` 选列、`s` 排序），不依赖鼠标，适配 SSH / tmux。
 
@@ -189,24 +195,29 @@ export COLORTERM=truecolor
 
 **颜色分两类，刻意区别对待**：
 
-- **数据编码色**（表格涨跌的绿/红）：在 `main.py` 的 `DIR_COLOR` 里固定为具体色值，**不随主题变**——它编码"相对官方价更贵/更便宜"的数值语义，需在任意主题与截图下保持一致；且已配 `↑/↓` 箭头作非颜色冗余，不靠单色区分。
+- **数据编码色**（表格涨跌的绿/红）：在 `screens/dashboard.py` 的 `DIR_COLOR` 里固定为具体色值，**不随主题变**——它编码"相对官方价更贵/更便宜"的数值语义，需在任意主题与截图下保持一致；且已配 `↑/↓` 箭头作非颜色冗余，不靠单色区分。
 - **UI 状态色**（底部状态栏 `✅/⏳/❌`）：走主题的 `$success/$warning/$error`（见 `app.tcss` 的 `#status.ok/.warn/.err`），随主题切换。
 
-Textual 自带主题切换：运行中 `Ctrl+P` 打开命令面板即可换内置主题验证观感。tab 标题刻意不放 emoji（CJK/emoji 双宽在不同终端实现不一，会影响 tab 宽度与下划线定位）。
+Textual 自带主题切换：本项目已关闭命令面板（`ENABLE_COMMAND_PALETTE = False`，与三项目一致），换主题可在 `App()` 上用 `app.theme = "tokyo-night"` 等方式，或改代码验证观感。tab 标题刻意不放 emoji（CJK/emoji 双宽在不同终端实现不一，会影响 tab 宽度与下划线定位）。
 
 ## 项目结构
 
 ```text
 llm_price_compare/
-├── __init__.py
-├── main.py                 # Textual 界面层（App、表格、事件）
-├── core.py                 # 数据层：抓取、算价、装配表格（无 UI / print）
-├── config.py               # 配置目录管理、加载/保存、默认模板
-├── setup_wizard.py         # 首次启动配置向导（ModalScreen）
-├── settings_screen.py      # 程序内设置页（汇率/场景/对比组/模型 CRUD）
-├── app.tcss                # 界面样式（随包分发）
+├── __init__.py            # 仅 __version__（轻量入口，避免 runpy 双导入告警）
+├── main.py                # CLI：config 位置参数 + -D/--dir + --version，写环境变量后启动 App
+├── app.py                 # PriceCompareApp：无 Header/Footer、#status、两段式 load_data、Ctrl+Q/Ctrl+S、notify
+├── ui.py                  # 界面骨架 PageScreen（顶栏 / #page / HintBar / 折叠菜单）
+├── widgets.py             # 共享模态与表格辅助（与三项目同一份：Confirm/Input/Form/OutputModal、ClickTable、HintBar、shorten…）
+├── app.tcss               # 全局样式：单行按钮、模态三段式、.tbl(focus round)、.panel、状态栏（随包分发）
+├── core.py                # 数据层：抓取、算价、装配表格（无 UI / print）
+├── config.py              # 配置目录管理、加载/保存、默认模板、定价策略标准暴露入口
+├── screens/
+│   ├── dashboard.py       # 根屏看板：TabbedContent（总览 + 每组一 tab）+ SortTable（cell 光标 / s 排序）+ 两段式 rebuild
+│   ├── settings.py        # 设置页（PageScreen）：常规/场景/对比组，InputModal 重命名 · FormModal 编辑 · ConfirmModal 删除
+│   └── setup.py           # 首启向导（ModalScreen，三段式）
 └── pricing_scrapers/       # 各官方提供商定价抓取器
-    ├── base.py             # 统一接口 + 降级框架
+    ├── base.py             # 统一接口 + 降级框架 + PRICING_STRATEGIES
     ├── html_table.py       # 纯标准库 HTML 表格解析器
     ├── deepseek.py / zhipu.py / alibaba.py / xiaomi.py / kimi.py
     └── __init__.py         # PROVIDER_SCRAPERS 注册表 + get_scraper() 工厂
