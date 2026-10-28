@@ -3,7 +3,7 @@
 统一规范落地：
 - 重命名 → widgets.InputModal；模型新增 / 编辑 → widgets.FormModal 子类（定价策略随来源动态刷新）；
   删除组 / 模型 → widgets.ConfirmModal（危险项默认不回车放行）。
-- 列表用 widgets.ClickTable：单击 = 选择（去掉旧版「双击编辑」，改由按钮 / 回车执行）。
+- 列表用 widgets.ClickTable(activate="click")：单击 = 选择（编辑仍由按钮 / 回车执行）。
 - 未保存修改时返回（Esc / ◀ 返回 / 放弃）会先确认。
 """
 from __future__ import annotations
@@ -151,7 +151,7 @@ class SettingsScreen(PageScreen):
                 with Horizontal(id="group-body"):
                     with Vertical(classes="group-side"):
                         yield Label("对比组")
-                        yield ClickTable(id="group-table", cursor_type="row", classes="")
+                        yield ClickTable(id="group-table", cursor_type="row", classes="", activate="click")
                         with Horizontal(classes="grp-btns"):
                             yield Button("＋ 新建", id="add-group")
                             yield Button("✎ 重命名", id="rename-group")
@@ -166,7 +166,7 @@ class SettingsScreen(PageScreen):
                                 id="group-guide",
                             )
                         yield Label("模型条目（单击选择，回车 / 编辑按钮修改）", classes="field-label")
-                        yield ClickTable(id="models-table", cursor_type="row", classes="")
+                        yield ClickTable(id="models-table", cursor_type="row", classes="", activate="click")
                         with Horizontal(classes="row-actions"):
                             yield Button("＋ 添加模型", id="add-model")
                             yield Button("✎ 编辑模型", id="edit-model")
@@ -280,8 +280,11 @@ class SettingsScreen(PageScreen):
 
     @on(DataTable.RowSelected, "#group-table")
     def _group_selected(self, event: DataTable.RowSelected) -> None:
-        self._group_index = event.row_index
-        self._load_group()
+        # RowSelected 只有 cursor_row / row_key，没有 row_index
+        groups = self._config.get("groups", [])
+        if 0 <= event.cursor_row < len(groups):
+            self._group_index = event.cursor_row
+            self._load_group()
 
     @on(Button.Pressed, "#rename-group")
     def _rename_group(self) -> None:
@@ -338,7 +341,9 @@ class SettingsScreen(PageScreen):
 
     @on(DataTable.RowSelected, "#models-table")
     def _model_selected(self, event: DataTable.RowSelected) -> None:
-        self._edit_index = event.row_index
+        group = self._current_group()
+        if group is not None and 0 <= event.cursor_row < len(group.get("models", [])):
+            self._edit_index = event.cursor_row
 
     @on(Button.Pressed, "#add-model")
     def _add_model(self) -> None:
